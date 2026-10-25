@@ -4,7 +4,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY . .
-RUN npx prisma generate && npx next build && npm prune --omit=dev --no-audit --no-fund
+RUN npm run build && npm prune --omit=dev --no-audit --no-fund
 
 FROM node:24-slim
 WORKDIR /app
