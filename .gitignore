@@ -3,7 +3,7 @@ node_modules/
 .next/
 next-env.d.ts
 *.tsbuildinfo
-src/generated/
+src/server/db/generated/
 
 # Test output
 test-results/

@@ -1,0 +1,8 @@
+.git
+.worktrees
+.next
+node_modules
+src/server/db/generated
+test-results
+playwright-report
+.env
