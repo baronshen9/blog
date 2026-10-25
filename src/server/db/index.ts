@@ -7,7 +7,12 @@ const globalForDb = globalThis as { blogDb?: PrismaClient };
 
 export function getDb(): PrismaClient {
   globalForDb.blogDb ??= new PrismaClient({
-    adapter: new PrismaPg({ connectionString: getConfig().DATABASE_URL }),
+    // A bounded wait for a pooled connection, so requests fail instead of
+    // queuing forever behind a stalled database.
+    adapter: new PrismaPg({
+      connectionString: getConfig().DATABASE_URL,
+      connectionTimeoutMillis: 5_000,
+    }),
   });
   return globalForDb.blogDb;
 }
