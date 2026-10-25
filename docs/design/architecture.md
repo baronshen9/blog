@@ -87,7 +87,8 @@ Post lifecycle:
 Later milestones add `Tag` and a post–tag relation (owned by `posts`), `Image`
 (owned by `media`; files on the `media` volume, metadata in Postgres), and
 `Comment` with its rate-limit records (owned by `comments`; Postgres, no
-separate cache). Their fields are settled in their milestones.
+separate cache). Their fields are [deferred](#deferred-decisions) to those
+milestones.
 
 ## Key flows
 
@@ -116,8 +117,8 @@ separate cache). Their fields are settled in their milestones.
 3. The body is rendered from Markdown on each request.
 
 **Search (M3)** matches the query as a case-insensitive substring (`ILIKE`)
-against title and body of published posts. A `pg_trgm` index is added only if
-measured latency requires it; no separate search service.
+against title and body of published posts; there is no separate search
+service.
 
 ## Cross-cutting rules
 
@@ -172,6 +173,17 @@ URL is not found, publish, read it on the public site, unpublish, confirm it is
 not found again. M2 adds an MCP stdio round trip that creates and publishes a
 draft with a token. Later milestones add one journey per milestone.
 
+## Host toolchain
+
+| Tool | Version | Pinned in |
+| --- | --- | --- |
+| Node.js with npm | 24 LTS | `.node-version` |
+| Docker with Compose | A Compose plugin that supports `docker compose up --wait` | — |
+
+`scripts/check.sh` needs Docker for Testcontainers; `scripts/smoke.sh` needs
+Compose. The MCP server needs only Node and the installed dependencies on the
+host ([0003](../decisions/0003-mcp-as-host-stdio-client.md)).
+
 ## Local runtime
 
 | Service | Image | Details |
@@ -182,4 +194,17 @@ draft with a token. Later milestones add one journey per milestone.
 `docker compose up --build` from a fresh clone with `.env` copied from
 `.env.example` runs the complete blog. There is no seed content; the owner
 account comes from `.env`. Development uses `npm run dev` against the Compose
-`db` service. Node 24 is pinned in `.node-version`.
+`db` service.
+
+## Deferred decisions
+
+| Decision | Needed by | Current default |
+| --- | --- | --- |
+| `Tag` and post–tag fields | M3 | None; owned by `posts` |
+| Search index | M3 | `ILIKE` without an index; add `pg_trgm` only if measured latency requires it |
+| `Image` fields, upload size limit, and accepted file types | M3 | None; files on the `media` volume, metadata in Postgres, owned by `media` |
+| `Comment` and rate-limit record fields | M4 | None; stored in Postgres, owned by `comments` |
+| Notifying the owner of pending comments outside the admin | M4 | No notification (PRD open question) |
+| Interface translation library and language switch | M5 | English interface text; candidate next-intl ([0004](../decisions/0004-language-prefixed-urls-and-translation-groups.md)) |
+| Whether a language-filtered list shows posts that exist only in the other language | M5 | None (PRD open question) |
+| Language of a first visit | M5 | `/` redirects to `SITE_DEFAULT_LANGUAGE` (PRD open question) |
