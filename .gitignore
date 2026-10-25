@@ -1,0 +1,17 @@
+# Dependencies and build output
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+src/generated/
+
+# Test output
+test-results/
+playwright-report/
+
+# Local configuration and worktrees
+.env
+.worktrees/
+
+# OS files
+.DS_Store
