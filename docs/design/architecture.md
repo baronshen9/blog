@@ -1,0 +1,185 @@
+---
+status: approved     # draft | approved
+approved: 2026-10-26 # YYYY-MM-DD, set at gate G2
+---
+
+# Blog — Architecture
+
+Implements [the PRD](../product/prd.md). Decisions with trade-offs are recorded
+in [`docs/decisions/`](../decisions/).
+
+## Context and constraints
+
+- **One set of rules, two writers.** The owner changes content from the web
+  admin and from Claude Code or Codex through MCP, and both must produce
+  identical results (US-6). All content rules live in the server; the MCP
+  server is a thin client of a token-authenticated HTTP API.
+- **MCP runs on the host.** Image upload through MCP (US-10) reads files from
+  the owner's machine, so the MCP process cannot live in a container.
+- **Chinese and English search.** Built-in full-text parsers do not segment
+  Chinese words reliably. At single-author volume (hundreds of posts),
+  substring matching over published posts is exact for both languages.
+- **Language shapes URLs from day one.** A published post's URL must stay
+  stable (US-3) while M5 adds language-prefixed pages and linked translations,
+  so the language prefix and translation group exist from M1.
+- **Small and local.** One owner, low traffic, local Docker on macOS, and a
+  later single virtual server without managed services. Durability matters
+  more than throughput.
+
+## Stack
+
+| Concern | Choice | Reason |
+| --- | --- | --- |
+| Language and runtime | TypeScript (strict) on Node 24 LTS, npm | One language for site, API, and MCP server; Node 24 runs erasable TypeScript without a build step |
+| Framework | Next.js 16 (App Router), React 19 | Server Components render public and admin pages; Server Actions handle admin writes; route handlers serve the API ([0001](../decisions/0001-nextjs-monolith-with-postgres.md)) |
+| Persistence | Postgres 18 with Prisma ORM and Prisma Migrate | Durable relational store with constraints; one engine from tests to a future server |
+| Markdown | unified (remark-gfm, remark-rehype) with Shiki highlighting, server-side only | One renderer for admin preview and public pages; raw HTML in Markdown is not rendered |
+| Validation | zod | API request and response schemas shared by route handlers and the MCP server |
+| MCP | `@modelcontextprotocol/sdk`, stdio transport, run on the host with `node` ([0003](../decisions/0003-mcp-as-host-stdio-client.md)) | Local Claude Code and Codex support stdio servers |
+| Testing | Vitest; Testcontainers for Postgres; Playwright for smoke journeys | Integration tests run against the real engine |
+| Formatting and lint | Prettier, ESLint (typescript-eslint, Next config) | Module boundaries are enforced with ESLint `no-restricted-imports` |
+| Packaging and local runtime | Docker Compose | `web` and `db` services; nothing else to install besides Node for development |
+
+## Modules
+
+All application code lives under `src/`.
+
+| Module | Owns | May depend on |
+| --- | --- | --- |
+| `app/` | Next.js routes only: `app/[locale]/` public pages, `app/admin/` owner admin, `app/api/v1/` token API, `/healthz`. Parses input, checks access, calls services, renders | `server`, `ui`, `contract`, `lib` |
+| `server/<domain>/` | Domain logic and persistence, one folder per domain: `posts`, `auth` (owner sessions), `tokens`; later `media`, `comments`. Each exposes its services through `index.ts` | `server/db`, other domains' `index.ts`, `contract`, `lib` |
+| `server/db` | The Prisma client | — |
+| `contract/` | zod schemas and types of the HTTP API | — |
+| `lib/` | Pure functions: Markdown rendering, slugs, excerpts | — |
+| `ui/` | Presentational React components; no data access | `lib` |
+| `mcp/` | The stdio MCP server; reaches the blog only over HTTP | `contract` |
+
+Dependencies point inward toward domain logic. Only `server/` imports Prisma,
+and only through `server/db`. A domain never imports another domain's
+internals, only its `index.ts`. Nothing outside `app/` imports Next.js
+request APIs.
+
+## Data model
+
+Prisma schema in `prisma/schema.prisma`; every schema change ships as a
+committed migration created with `prisma migrate dev` and applied with
+`prisma migrate deploy` at container start. Migrations are never edited after
+merge.
+
+| Entity | Fields | Rules |
+| --- | --- | --- |
+| `Owner` | id, username, passwordHash (argon2id), createdAt | Exactly one row, created at startup from `OWNER_USERNAME` and `OWNER_PASSWORD` when absent; never overwritten from the environment |
+| `Session` | id, tokenHash, ownerId, createdAt, expiresAt | Cookie holds a random token; only its SHA-256 hash is stored. Signing out deletes the row |
+| `ApiToken` | id, name, tokenHash, createdAt, lastUsedAt, revokedAt | Secret shown once at creation; only its SHA-256 hash is stored. Revoked tokens are kept for the list but refused |
+| `Post` | id, translationGroupId, language (`zh` \| `en`), title, slug, bodyMarkdown, status (`draft` \| `published`), publishedAt, createdAt, updatedAt, deletedAt | Unique `(language, slug)` and `(translationGroupId, language)`; title must be non-empty. A new post starts a new translation group |
+
+Post lifecycle:
+
+- `publishedAt` is set on first publication and kept when the post is
+  unpublished and published again.
+- The slug is generated from the title (or a short id when the title has no
+  Latin characters), editable while the post has never been published, and
+  immutable afterwards.
+- Deleting sets `deletedAt` (trash). Restoring clears it and sets `status` to
+  `draft`. Permanent deletion is a separate admin-only service function and is
+  not exposed by the API.
+
+Later milestones add `Tag` and a post–tag relation (owned by `posts`), `Image`
+(owned by `media`; files on the `media` volume, metadata in Postgres), and
+`Comment` with its rate-limit records (owned by `comments`; Postgres, no
+separate cache). Their fields are settled in their milestones.
+
+## Key flows
+
+**Owner writes in the admin**
+
+1. Middleware redirects signed-out requests under `/admin` to the sign-in page.
+2. A Server Action calls `requireOwner()`, validates the form, and calls a
+   `posts` service.
+3. Preview calls the same `lib` Markdown renderer as the public page.
+
+**Owner writes through MCP**
+
+1. Claude Code or Codex starts `node src/mcp/server.ts` with `BLOG_URL` and
+   `BLOG_API_TOKEN` from its own configuration.
+2. Each tool validates arguments with `contract` schemas and calls
+   `app/api/v1/` over HTTP with a Bearer token.
+3. The route handler verifies the token, updates `lastUsedAt`, calls the same
+   `posts` services as the admin, and returns JSON.
+4. The MCP server turns error responses into plain-language tool results.
+
+**Reader opens a post**
+
+1. `app/[locale]/posts/[slug]` validates the locale (`zh` or `en`) and loads
+   the post through the `posts` published-post query.
+2. Missing, draft, or trashed posts render the not-found page.
+3. The body is rendered from Markdown on each request.
+
+**Search (M3)** matches the query as a case-insensitive substring (`ILIKE`)
+against title and body of published posts. A `pg_trgm` index is added only if
+measured latency requires it; no separate search service.
+
+## Cross-cutting rules
+
+- **Errors:** services throw `DomainError` with a code (`NOT_FOUND`,
+  `VALIDATION`, `CONFLICT`, `UNAUTHORIZED`) and a message safe to show. The API
+  maps codes to HTTP status and `{ "error": { "code", "message" } }`; the admin
+  shows the message; unexpected errors are logged and return a generic message.
+- **Draft privacy:** public pages read posts only through the `posts`
+  published-post queries (`status = published` and `deletedAt` is null).
+- **Rendering and caching:** public and admin pages render on each request;
+  the Next.js data and route caches are not enabled, so a saved change is
+  visible on the next request.
+- **Configuration:** environment variables only, read and validated once in
+  `server/config`. `.env.example` lists every variable with a safe local value;
+  `.env` is ignored by Git. MCP variables live in the assistant's
+  configuration, not in `.env`.
+- **Security:** every Server Action and route handler checks access itself;
+  middleware only redirects. Admin uses the session cookie (httpOnly,
+  SameSite=Lax, Secure over HTTPS); the API accepts only Bearer tokens, never
+  cookies. Credentials failures return one generic message. Owner and token
+  secrets are compared by hash ([0002](../decisions/0002-built-in-owner-sessions-and-api-tokens.md)).
+- **Logging:** one line per request and per unexpected error to stdout. Never
+  log passwords, tokens, cookies, or reader IP addresses.
+- **Language:** public routes live under `/<locale>/` with `zh` and `en`;
+  `SITE_DEFAULT_LANGUAGE` picks the target of `/`. Interface translation and
+  the language switch arrive in M5 ([0004](../decisions/0004-language-prefixed-urls-and-translation-groups.md)).
+  The admin is English only.
+
+## Test strategy
+
+| Behavior | Primary guard | Evidence |
+| --- | --- | --- |
+| Invalid input and impossible states | TypeScript, zod schemas, Prisma enums | Unit tests at the API and form boundary |
+| Markdown rendering, slugs, excerpts | Pure functions in `lib/` | Unit tests |
+| Post lifecycle, draft privacy, trash, token revocation | Services and database constraints | Integration tests against Postgres (Testcontainers), calling services and route handlers directly |
+| MCP tool behavior and error wording | `contract` schemas | Unit tests with a stubbed `fetch` |
+| Module dependency direction | ESLint `no-restricted-imports` | `scripts/check.sh` |
+| Key user journeys | The integrated stack | `scripts/smoke.sh` |
+
+Integration tests share one Postgres container per run and truncate tables
+between tests.
+
+## Commands
+
+| Command | Purpose | Budget |
+| --- | --- | --- |
+| `scripts/check.sh` | `prettier --check`, `eslint`, `tsc --noEmit`, `prisma validate`, migration drift check (`prisma migrate diff --exit-code`), `vitest run`; also run by CI. Requires Docker for Testcontainers | about 2 minutes |
+| `scripts/smoke.sh` | `docker compose up --build --wait` under a throwaway project name, health check, Playwright journeys, teardown with `down -v` | a few minutes |
+
+Smoke journeys grow with milestones. M1: sign in, save a draft, confirm its
+URL is not found, publish, read it on the public site, unpublish, confirm it is
+not found again. M2 adds an MCP stdio round trip that creates and publishes a
+draft with a token. Later milestones add one journey per milestone.
+
+## Local runtime
+
+| Service | Image | Details |
+| --- | --- | --- |
+| `db` | `postgres:18` | Volume `pgdata`; health check with `pg_isready`; published on `127.0.0.1:5432` for `npm run dev` |
+| `web` | Built from `Dockerfile` (Next.js standalone output on Node 24) | Waits for `db`; on start runs `prisma migrate deploy`, ensures the owner, then serves on `127.0.0.1:3000`; volume `media` for uploads |
+
+`docker compose up --build` from a fresh clone with `.env` copied from
+`.env.example` runs the complete blog. There is no seed content; the owner
+account comes from `.env`. Development uses `npm run dev` against the Compose
+`db` service. Node 24 is pinned in `.node-version`.
