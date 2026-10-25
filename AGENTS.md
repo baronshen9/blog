@@ -25,8 +25,8 @@ Copy `.env.example` to `.env` before running Compose. Node 24 is pinned in
 | Path | Owns |
 | --- | --- |
 | `src/app/` | Next.js routes only: `[locale]/` public pages, `admin/` owner admin, `api/v1/` token API |
-| `src/server/<domain>/` | Domain services and persistence (`posts`, `auth`, `tokens`, later `media`, `comments`); public surface is `index.ts` |
-| `src/server/db/` | The Prisma client; the only place it is created |
+| `src/server/<domain>/` | Domain services and persistence (`posts`, `auth`, `tokens`, `health`, later `media`, `comments`); public surface is `index.ts` |
+| `src/server/db/` | The Prisma client (generated into `generated/`, Git-ignored); the only place it is created |
 | `src/contract/` | zod schemas and types of the HTTP API, shared with the MCP server |
 | `src/lib/` | Pure functions: Markdown rendering, slugs, excerpts |
 | `src/ui/` | Presentational React components |
@@ -49,6 +49,8 @@ Copy `.env.example` to `.env` before running Compose. Node 24 is pinned in
   Testcontainers Postgres, never mocks of Prisma.
 - Use only erasable TypeScript syntax in `src/mcp/` so Node runs it without a
   build.
+- Next.js 16 differs from older versions; check `node_modules/next/dist/docs/`
+  before relying on a remembered API.
 
 ## Invariants
 

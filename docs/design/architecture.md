@@ -47,7 +47,7 @@ All application code lives under `src/`.
 | Module | Owns | May depend on |
 | --- | --- | --- |
 | `app/` | Next.js routes only: `app/[locale]/` public pages, `app/admin/` owner admin, `app/api/v1/` token API, `/healthz`. Parses input, checks access, calls services, renders | `server`, `ui`, `contract`, `lib` |
-| `server/<domain>/` | Domain logic and persistence, one folder per domain: `posts`, `auth` (owner sessions), `tokens`; later `media`, `comments`. Each exposes its services through `index.ts` | `server/db`, other domains' `index.ts`, `contract`, `lib` |
+| `server/<domain>/` | Domain logic and persistence, one folder per domain: `posts`, `auth` (owner sessions), `tokens`, `health` (readiness for `/healthz`); later `media`, `comments`. Each exposes its services through `index.ts` | `server/db`, other domains' `index.ts`, `contract`, `lib` |
 | `server/db` | The Prisma client | — |
 | `contract/` | zod schemas and types of the HTTP API | — |
 | `lib/` | Pure functions: Markdown rendering, slugs, excerpts | — |
@@ -188,8 +188,8 @@ host ([0003](../decisions/0003-mcp-as-host-stdio-client.md)).
 
 | Service | Image | Details |
 | --- | --- | --- |
-| `db` | `postgres:18` | Volume `pgdata`; health check with `pg_isready`; published on `127.0.0.1:5432` for `npm run dev` |
-| `web` | Built from `Dockerfile` (Next.js standalone output on Node 24) | Waits for `db`; on start runs `prisma migrate deploy`, ensures the owner, then serves on `127.0.0.1:3000`; volume `media` for uploads |
+| `db` | `postgres:18` | Volume `pgdata`; health check with `pg_isready`; published on `127.0.0.1:5432` (`DB_PORT`) for `npm run dev` |
+| `web` | Built from `Dockerfile` (Next.js standalone output on Node 24) | Waits for `db`; on start runs `prisma migrate deploy`, ensures the owner, then serves on `127.0.0.1:3000` (`WEB_PORT`); volume `media` for uploads |
 
 `docker compose up --build` from a fresh clone with `.env` copied from
 `.env.example` runs the complete blog. There is no seed content; the owner

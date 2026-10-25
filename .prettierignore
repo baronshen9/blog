@@ -1,0 +1,4 @@
+# Markdown keeps its hand-wrapped prose and compact tables.
+*.md
+package-lock.json
+src/server/db/generated/
