@@ -211,7 +211,7 @@ test, so each test creates the data it needs and writes no cleanup.
 | Command | Purpose | Budget |
 | --- | --- | --- |
 | `scripts/check.sh` | `prettier --check`, `eslint`, `tsc --noEmit`, `prisma validate`, migration drift check (`prisma migrate diff --exit-code`), `vitest run`; also run by CI. Requires Docker for Testcontainers | about 2 minutes |
-| `scripts/smoke.sh` | `docker compose up --build --wait` under a throwaway project name, health check, Playwright journeys, teardown with `down -v` | a few minutes |
+| `scripts/smoke.sh` | `docker compose up --build --wait` under a project name unique to the run, so runs can overlap; health check, Playwright journeys, teardown of that project with `down -v --rmi local` | a few minutes |
 
 Smoke journeys grow with milestones. M1: sign in, save a draft, confirm its
 URL is not found, publish, read it on the public site, unpublish, confirm it is

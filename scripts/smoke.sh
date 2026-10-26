@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
-# Builds and starts the Compose stack under a throwaway project with the
-# values from .env.example, waits for the health checks, runs the Playwright
-# journeys in e2e/, and tears everything down, including volumes. Empty port
+# Builds and starts the Compose stack under a Compose project of its own with
+# the values from .env.example, waits for the health checks, runs the Playwright
+# journeys in e2e/, and tears that project down, including its volumes and its
+# image. The project name is unique per run, so concurrent runs from different
+# worktrees never share containers, data, or the built image. Empty port
 # variables let Docker pick free host ports, so a running stack is no obstacle.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 export DB_PORT="" WEB_PORT=""
-compose=(docker compose --project-name blog-smoke --env-file .env.example)
-cleanup() { "${compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true; }
+compose=(docker compose --project-name "blog-smoke-$$-$RANDOM" --env-file .env.example)
+cleanup() { "${compose[@]}" down --volumes --rmi local --remove-orphans >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 trap 'echo "smoke: FAILED" >&2' ERR
 
