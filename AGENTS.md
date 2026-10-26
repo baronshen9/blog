@@ -55,6 +55,10 @@ Copy `.env.example` to `.env` before running Compose. Node 24 is pinned in
   build.
 - Next.js 16 differs from older versions; check `node_modules/next/dist/docs/`
   before relying on a remembered API.
+- Style with the design tokens in `src/ui/tokens.css` and CSS Modules next to
+  `ui/` components; no raw colors, inline styles, CSS frameworks, or web fonts
+  ([0005](docs/decisions/0005-css-modules-and-design-tokens.md)).
+- Pull requests that change a screen include light and dark screenshots of it.
 
 ## Invariants
 
