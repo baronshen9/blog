@@ -14,6 +14,7 @@ export type Post = {
   slug: string;
   bodyMarkdown: string;
   status: PostStatus;
+  publishedAt: Date | null;
   updatedAt: Date;
 };
 export type PostSummary = Pick<
@@ -21,6 +22,10 @@ export type PostSummary = Pick<
   "id" | "language" | "title" | "status" | "updatedAt"
 >;
 export type PostContent = { title: string; bodyMarkdown: string };
+export type PublishedPost = Pick<
+  Post,
+  "language" | "title" | "slug" | "bodyMarkdown"
+> & { publishedAt: Date };
 
 const postFields = {
   id: true,
@@ -29,6 +34,7 @@ const postFields = {
   slug: true,
   bodyMarkdown: true,
   status: true,
+  publishedAt: true,
   updatedAt: true,
 } as const;
 
@@ -61,17 +67,46 @@ export async function createDraft({
   throw new DomainError("CONFLICT", "No free slug was found; save again.");
 }
 
-// Changes the content only; status and slug stay as they are.
+// Changes the content, and the status when one is given; the slug never
+// changes. The first publication sets publishedAt, which unpublishing and
+// publishing again keep.
 export async function updatePost(
   id: string,
-  content: PostContent,
+  { status, ...content }: PostContent & { status?: PostStatus },
 ): Promise<Post> {
-  await getPost(id);
+  const post = await getPost(id);
   return getDb().post.update({
     where: { id },
-    data: validate(content),
+    data: {
+      ...validate(content),
+      status,
+      publishedAt:
+        post.publishedAt ?? (status === "published" ? new Date() : null),
+    },
     select: postFields,
   });
+}
+
+// A published-post query, the only way public pages read posts: a published
+// post outside the trash, by its URL.
+export async function getPublishedPost(
+  language: Language,
+  slug: string,
+): Promise<PublishedPost> {
+  const post = await getDb().post.findFirst({
+    where: { language, slug, status: "published", deletedAt: null },
+    select: {
+      language: true,
+      title: true,
+      slug: true,
+      bodyMarkdown: true,
+      publishedAt: true,
+    },
+  });
+  if (!post?.publishedAt) {
+    throw new DomainError("NOT_FOUND", "This post does not exist.");
+  }
+  return { ...post, publishedAt: post.publishedAt };
 }
 
 export async function getPost(id: string): Promise<Post> {

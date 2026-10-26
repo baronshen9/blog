@@ -1,6 +1,12 @@
 import { expect, test } from "vitest";
 import { getDb } from "@/server/db";
-import { createDraft, getPost, listPosts, updatePost } from ".";
+import {
+  createDraft,
+  getPost,
+  getPublishedPost,
+  listPosts,
+  updatePost,
+} from ".";
 
 const draft = {
   language: "en",
@@ -103,4 +109,73 @@ test("lists posts outside the trash, most recently changed first", async () => {
     updatePost(trashed.id, { title: "x", bodyMarkdown: "" }),
   ).rejects.toMatchObject({ code: "NOT_FOUND" });
   expect(newer.status).toBe("draft");
+});
+
+test("publishing makes a post public at its language and slug", async () => {
+  const post = await createDraft(draft);
+  await expect(getPublishedPost("en", post.slug)).rejects.toMatchObject({
+    code: "NOT_FOUND",
+  });
+
+  const published = await updatePost(post.id, {
+    title: "First post",
+    bodyMarkdown: "Final",
+    status: "published",
+  });
+
+  expect(published.publishedAt).toBeInstanceOf(Date);
+  await expect(getPublishedPost("en", "first-post")).resolves.toEqual({
+    language: "en",
+    title: "First post",
+    slug: "first-post",
+    bodyMarkdown: "Final",
+    publishedAt: published.publishedAt,
+  });
+  await expect(getPublishedPost("zh", "first-post")).rejects.toMatchObject({
+    code: "NOT_FOUND",
+  });
+});
+
+test("keeps the first publication date and the slug across unpublishing", async () => {
+  const post = await createDraft(draft);
+  const first = await updatePost(post.id, { ...draft, status: "published" });
+
+  const unpublished = await updatePost(post.id, {
+    title: "Renamed",
+    bodyMarkdown: "",
+    status: "draft",
+  });
+  await expect(getPublishedPost("en", post.slug)).rejects.toMatchObject({
+    code: "NOT_FOUND",
+  });
+  const again = await updatePost(post.id, { ...draft, status: "published" });
+
+  expect(unpublished).toMatchObject({ status: "draft", slug: "first-post" });
+  expect(unpublished.publishedAt).toEqual(first.publishedAt);
+  expect(again.publishedAt).toEqual(first.publishedAt);
+});
+
+test("saving a published post changes its public content, not its status", async () => {
+  const post = await createDraft(draft);
+  await updatePost(post.id, { ...draft, status: "published" });
+
+  await updatePost(post.id, { title: "Edited", bodyMarkdown: "New body" });
+
+  await expect(getPublishedPost("en", post.slug)).resolves.toMatchObject({
+    title: "Edited",
+    bodyMarkdown: "New body",
+  });
+});
+
+test("never shows a trashed post publicly", async () => {
+  const post = await createDraft(draft);
+  await updatePost(post.id, { ...draft, status: "published" });
+  await getDb().post.update({
+    where: { id: post.id },
+    data: { deletedAt: new Date() },
+  });
+
+  await expect(getPublishedPost("en", post.slug)).rejects.toMatchObject({
+    code: "NOT_FOUND",
+  });
 });
