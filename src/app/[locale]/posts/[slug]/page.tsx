@@ -6,6 +6,7 @@ import { z } from "zod";
 import { renderMarkdown } from "@/lib";
 import { DomainError } from "@/server/errors";
 import { getPublishedPost, languages } from "@/server/posts";
+import { LanguageLabel, Prose } from "@/ui";
 
 type Params = Promise<{ locale: string; slug: string }>;
 
@@ -41,10 +42,10 @@ export default async function PostPage({ params }: { params: Params }) {
         <p>
           <time dateTime={post.publishedAt.toISOString()}>
             {post.publishedAt.toISOString().slice(0, 10)}
-          </time>
+          </time>{" "}
+          <LanguageLabel language={post.language} />
         </p>
-        {/* Sanitized by the Markdown renderer. */}
-        <div dangerouslySetInnerHTML={{ __html: body }} />
+        <Prose html={body} />
       </article>
     </main>
   );

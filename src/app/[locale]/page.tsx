@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import { DomainError } from "@/server/errors";
 import { listPublishedPosts } from "@/server/posts";
+import { LanguageLabel } from "@/ui";
 
 export const metadata: Metadata = { title: "Posts" };
 
@@ -49,7 +50,8 @@ export default async function HomePage({
           <p>
             <time dateTime={post.publishedAt.toISOString()}>
               {post.publishedAt.toISOString().slice(0, 10)}
-            </time>
+            </time>{" "}
+            <LanguageLabel language={post.language} />
           </p>
           <p>{post.excerpt}</p>
         </article>

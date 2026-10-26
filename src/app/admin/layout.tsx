@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+// The design tokens and base styles, also for the sign-in page.
+import "@/ui";
 
 export const metadata: Metadata = {
   title: "Admin",

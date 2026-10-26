@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
+import { getConfig } from "@/server/config";
 import { languages } from "@/server/posts";
-import "./site.css";
+import { SiteFrame } from "@/ui";
 
 // Root layout of the public site. The locale segment is validated here; the
 // interface text stays English until the language switch arrives in M5.
@@ -18,10 +18,12 @@ export default async function LocaleLayout({
   return (
     <html lang={locale.data}>
       <body>
-        <header>
-          <Link href={`/${locale.data}`}>Home</Link>
-        </header>
-        {children}
+        <SiteFrame
+          siteName={getConfig().SITE_NAME}
+          homeHref={`/${locale.data}`}
+        >
+          {children}
+        </SiteFrame>
       </body>
     </html>
   );

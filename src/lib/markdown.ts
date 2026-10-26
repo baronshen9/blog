@@ -1,6 +1,7 @@
 import rehypeShiki from "@shikijs/rehype";
 import rehypeSanitize from "rehype-sanitize";
 import rehypeStringify from "rehype-stringify";
+import { createCssVariablesTheme } from "shiki";
 import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
@@ -8,14 +9,15 @@ import { unified } from "unified";
 
 // remark-rehype drops raw HTML, and the sanitizer removes unsafe URLs and
 // attributes before Shiki adds its own highlighting markup. Languages load on
-// first use; unknown ones render as plain text.
+// first use; unknown ones render as plain text. Highlighting colors are the
+// --color-code-* design tokens, one dark set for both color schemes.
 const processor = unified()
   .use(remarkParse)
   .use(remarkGfm)
   .use(remarkRehype)
   .use(rehypeSanitize)
   .use(rehypeShiki, {
-    theme: "github-light",
+    theme: createCssVariablesTheme({ variablePrefix: "--color-code-" }),
     langs: [],
     lazy: true,
     defaultLanguage: "text",

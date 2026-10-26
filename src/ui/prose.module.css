@@ -1,0 +1,113 @@
+/* Code blocks take their colors from the --color-code-* tokens via Shiki. */
+.prose {
+  line-height: var(--leading-prose);
+}
+
+.prose > :first-child {
+  margin-top: 0;
+}
+
+.prose > :last-child {
+  margin-bottom: 0;
+}
+
+.prose :is(p, ul, ol, blockquote, pre, table) {
+  margin: 0 0 var(--space-4);
+}
+
+.prose :is(h1, h2, h3, h4, h5, h6) {
+  margin: var(--space-6) 0 var(--space-3);
+  font-weight: 600;
+}
+
+.prose h1 {
+  font-size: var(--text-2xl);
+}
+
+.prose h2 {
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--text-xl);
+}
+
+.prose h3 {
+  font-size: var(--text-lg);
+}
+
+.prose :is(h4, h5, h6) {
+  font-size: var(--text-base);
+}
+
+.prose :is(ul, ol) {
+  padding-left: var(--space-5);
+}
+
+.prose li + li {
+  margin-top: var(--space-1);
+}
+
+.prose a {
+  text-underline-offset: 2px;
+}
+
+.prose blockquote {
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--color-accent-fill);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: var(--color-accent-soft);
+}
+
+.prose blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.prose code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+}
+
+.prose :not(pre) > code {
+  padding: 0.125em 0.375em;
+  border-radius: var(--radius-sm);
+  background: var(--color-code-inline-bg);
+  color: var(--color-code-inline-text);
+}
+
+.prose pre {
+  overflow-x: auto;
+  padding: var(--space-4);
+  border: 1px solid var(--color-code-border);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  overflow-wrap: normal;
+}
+
+.prose pre code {
+  font-size: inherit;
+}
+
+.prose table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  overflow-wrap: normal;
+}
+
+.prose :is(th, td) {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  text-align: left;
+}
+
+.prose th {
+  background: var(--color-surface-muted);
+  font-weight: 600;
+}
+
+.prose hr {
+  margin: var(--space-6) 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+}

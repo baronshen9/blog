@@ -2,6 +2,7 @@
 
 import { startTransition, useActionState, type FormEvent } from "react";
 import type { PostStatus } from "@/server/posts";
+import { Button, Field, Prose } from "@/ui";
 import { editPostAction, type EditorState, type EditorValues } from "./actions";
 
 const languageNames = { en: "English", zh: "中文" } as const;
@@ -35,74 +36,59 @@ export function PostEditor({
   return (
     <form onSubmit={submit}>
       {initial.id && <input type="hidden" name="id" value={initial.id} />}
-      <p>
-        <label>
-          Title{" "}
-          <input
-            name="title"
-            defaultValue={initial.title}
-            readOnly={creating}
-          />
-        </label>
-      </p>
-      <p>
-        {initial.id ? (
-          <>
-            Language: {languageNames[initial.language]}
-            <input type="hidden" name="language" value={initial.language} />
-          </>
-        ) : (
-          <label>
-            Language{" "}
-            <select
-              name="language"
-              defaultValue={initial.language}
-              disabled={creating}
-            >
-              <option value="en">{languageNames.en}</option>
-              <option value="zh">{languageNames.zh}</option>
-            </select>
-          </label>
-        )}
-      </p>
-      <p>
-        <label>
-          Body (Markdown)
-          <br />
-          <textarea
-            name="bodyMarkdown"
-            defaultValue={initial.bodyMarkdown}
-            readOnly={creating}
-            rows={20}
-            cols={80}
-          />
-        </label>
-      </p>
+      <Field label="Title">
+        <input name="title" defaultValue={initial.title} readOnly={creating} />
+      </Field>
+      {initial.id ? (
+        <p>
+          Language: {languageNames[initial.language]}
+          <input type="hidden" name="language" value={initial.language} />
+        </p>
+      ) : (
+        <Field label="Language">
+          <select
+            name="language"
+            defaultValue={initial.language}
+            disabled={creating}
+          >
+            <option value="en">{languageNames.en}</option>
+            <option value="zh">{languageNames.zh}</option>
+          </select>
+        </Field>
+      )}
+      <Field label="Body (Markdown)">
+        <textarea
+          name="bodyMarkdown"
+          defaultValue={initial.bodyMarkdown}
+          readOnly={creating}
+          rows={20}
+        />
+      </Field>
       {state.error && <p role="alert">{state.error}</p>}
       {state.notice && <p role="status">{state.notice}</p>}
-      <button type="submit" name="intent" value="save" disabled={pending}>
+      <Button type="submit" name="intent" value="save" disabled={pending}>
         {status === "published" ? "Save" : "Save draft"}
-      </button>{" "}
+      </Button>{" "}
       {status && (
         <>
-          <button
+          <Button
             type="submit"
+            variant={status === "draft" ? "primary" : "secondary"}
             name="intent"
             value={status === "draft" ? "publish" : "unpublish"}
             disabled={pending}
           >
             {status === "draft" ? "Publish" : "Unpublish"}
-          </button>{" "}
+          </Button>{" "}
         </>
       )}
-      <button type="submit" name="intent" value="preview" disabled={pending}>
+      <Button type="submit" name="intent" value="preview" disabled={pending}>
         Preview
-      </button>
+      </Button>
       {state.preview !== undefined && (
         <section aria-label="Preview">
           <h2>Preview</h2>
-          {/* Sanitized by the Markdown renderer. */}
-          <div dangerouslySetInnerHTML={{ __html: state.preview }} />
+          <Prose html={state.preview} />
         </section>
       )}
     </form>

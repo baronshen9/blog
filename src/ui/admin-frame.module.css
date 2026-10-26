@@ -1,0 +1,52 @@
+.frame {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-5);
+  padding: var(--space-2) var(--space-5);
+  background: var(--color-bar);
+  color: var(--color-bar-text);
+  font-size: var(--text-sm);
+}
+
+.brand {
+  font-weight: 600;
+}
+
+.nav {
+  display: flex;
+  flex: 1;
+  gap: var(--space-1);
+}
+
+.nav a,
+.signOut {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--color-bar-muted);
+  text-decoration: none;
+}
+
+.nav a:hover,
+.signOut:hover {
+  background: var(--color-bar-hover);
+  color: var(--color-bar-text);
+}
+
+.signOut {
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.work {
+  flex: 1;
+  padding: var(--space-5);
+}

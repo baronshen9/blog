@@ -22,6 +22,7 @@ services:
       OWNER_USERNAME: ${OWNER_USERNAME}
       OWNER_PASSWORD: ${OWNER_PASSWORD}
       SITE_DEFAULT_LANGUAGE: ${SITE_DEFAULT_LANGUAGE}
+      SITE_NAME: ${SITE_NAME:-}
     depends_on:
       db:
         condition: service_healthy
