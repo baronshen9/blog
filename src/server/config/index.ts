@@ -2,6 +2,8 @@ import { z } from "zod";
 
 const schema = z.object({
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
+  OWNER_USERNAME: z.string().min(1),
+  OWNER_PASSWORD: z.string().min(1),
 });
 
 export type Config = z.infer<typeof schema>;

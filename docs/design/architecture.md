@@ -48,6 +48,8 @@ All application code lives under `src/`.
 | --- | --- | --- |
 | `app/` | Next.js routes only: `app/[locale]/` public pages, `app/admin/` owner admin, `app/api/v1/` token API, `/healthz`. Parses input, checks access, calls services, renders | `server`, `ui`, `contract`, `lib` |
 | `server/<domain>/` | Domain logic and persistence, one folder per domain: `posts`, `auth` (owner sessions), `tokens`, `health` (readiness for `/healthz`); later `media`, `comments`. Each exposes its services through `index.ts` | `server/db`, other domains' `index.ts`, `contract`, `lib` |
+| `proxy.ts`, `instrumentation.ts` | Next.js root hooks: the proxy redirects signed-out admin requests; `register()` creates the owner at server start | Same as `app/` |
+| `server/errors` | `DomainError` and its codes, shared by all domains | — |
 | `server/db` | The Prisma client | — |
 | `contract/` | zod schemas and types of the HTTP API | — |
 | `lib/` | Pure functions: Markdown rendering, slugs, excerpts | — |
@@ -69,7 +71,7 @@ merge.
 | Entity | Fields | Rules |
 | --- | --- | --- |
 | `Owner` | id, username, passwordHash (argon2id), createdAt | Exactly one row, created at startup from `OWNER_USERNAME` and `OWNER_PASSWORD` when absent; never overwritten from the environment |
-| `Session` | id, tokenHash, ownerId, createdAt, expiresAt | Cookie holds a random token; only its SHA-256 hash is stored. Signing out deletes the row |
+| `Session` | id, tokenHash, ownerId, createdAt, expiresAt | Cookie (path `/admin`) holds a random token; only its SHA-256 hash is stored. Sessions last 30 days; signing out deletes the row |
 | `ApiToken` | id, name, tokenHash, createdAt, lastUsedAt, revokedAt | Secret shown once at creation; only its SHA-256 hash is stored. Revoked tokens are kept for the list but refused |
 | `Post` | id, translationGroupId, language (`zh` \| `en`), title, slug, bodyMarkdown, status (`draft` \| `published`), publishedAt, createdAt, updatedAt, deletedAt | Unique `(language, slug)` and `(translationGroupId, language)`; title must be non-empty. A new post starts a new translation group |
 
@@ -94,7 +96,8 @@ milestones.
 
 **Owner writes in the admin**
 
-1. Middleware redirects signed-out requests under `/admin` to the sign-in page.
+1. The proxy (`src/proxy.ts`, Next.js 16's name for middleware) redirects
+   requests under `/admin` without a session cookie to the sign-in page.
 2. A Server Action calls `requireOwner()`, validates the form, and calls a
    `posts` service.
 3. Preview calls the same `lib` Markdown renderer as the public page.
@@ -136,7 +139,7 @@ service.
   `.env` is ignored by Git. MCP variables live in the assistant's
   configuration, not in `.env`.
 - **Security:** every Server Action and route handler checks access itself;
-  middleware only redirects. Admin uses the session cookie (httpOnly,
+  the proxy only redirects. Admin uses the session cookie (httpOnly,
   SameSite=Lax, Secure over HTTPS); the API accepts only Bearer tokens, never
   cookies. Credentials failures return one generic message. Owner and token
   secrets are compared by hash ([0002](../decisions/0002-built-in-owner-sessions-and-api-tokens.md)).
@@ -177,7 +180,7 @@ draft with a token. Later milestones add one journey per milestone.
 
 | Tool | Version | Pinned in |
 | --- | --- | --- |
-| Node.js with npm | 24 LTS | `.node-version` |
+| Node.js with npm | 24 LTS, at least 24.7 for the built-in argon2 | `.node-version`, `package.json` engines |
 | Docker with Compose | A Compose plugin that supports `docker compose up --wait` | — |
 
 `scripts/check.sh` needs Docker for Testcontainers; `scripts/smoke.sh` needs
