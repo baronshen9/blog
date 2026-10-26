@@ -1,0 +1,59 @@
+.card {
+  position: relative;
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.card + .card {
+  margin-top: var(--space-3);
+}
+
+.card:hover {
+  border-color: var(--color-border-strong);
+}
+
+.title {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.link {
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+/* Stretch the link over the card so the whole card opens the post. */
+.link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.card:hover .link {
+  color: var(--color-accent);
+}
+
+.link:focus-visible {
+  outline: none;
+}
+
+.link:focus-visible::after {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.excerpt {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 639px) {
+  .card {
+    padding: var(--space-4);
+  }
+}

@@ -179,8 +179,10 @@ English.
 - **Frames:** the public frame (`SiteFrame`: header with the site name, a
   content column of about 860 px, footer) and the admin frame (`AdminFrame`:
   dark top bar with navigation and sign-out, full-width work area).
-- **Components in `ui/`:** `PostCard`, `LanguageLabel`, `Prose` (rendered
-  Markdown, including code, quotes, lists, and tables), `Pager`, `Button`,
+- **Components in `ui/`:** `PostCard`, `PostMeta` (date and language label),
+  `Card` (a page's main content with a back link and title), `PageTitle`,
+  `LanguageLabel`, `Prose` (rendered Markdown, including code, quotes, lists,
+  and tables), `Pager`, `Button`,
   `StatusBadge`, `Field` (labelled inputs and errors), and `EditorLayout`
   (Markdown and preview side by side, stacked below 900 px).
 - **Code blocks:** Shiki renders with one dark theme in both color schemes, so

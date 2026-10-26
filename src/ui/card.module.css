@@ -1,0 +1,33 @@
+.card {
+  padding: var(--space-6) var(--space-7);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.back {
+  display: inline-block;
+  color: var(--color-accent);
+  font-size: var(--text-xs);
+  text-decoration: none;
+}
+
+.back:hover {
+  text-decoration: underline;
+}
+
+.header {
+  margin: var(--space-4) 0 var(--space-5);
+}
+
+.title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+}
+
+@media (max-width: 639px) {
+  .card {
+    padding: var(--space-5) var(--space-4);
+  }
+}
