@@ -1,4 +1,4 @@
-/* Code blocks keep the colors of the one dark Shiki theme in both schemes. */
+/* Code blocks take their colors from the --color-code-* tokens via Shiki. */
 .prose {
   line-height: var(--leading-prose);
 }

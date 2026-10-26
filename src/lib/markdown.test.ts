@@ -16,7 +16,9 @@ const answer = 42;
   expect(html).toContain("<li>one</li>");
   expect(html).toContain('<a href="https://example.com">a link</a>');
   expect(html).toMatch(/<pre class="shiki[^"]*"[^>]*><code>/);
-  expect(html).toMatch(/<span style="color:#[0-9A-F]{6}">const<\/span>/i);
+  expect(html).toContain(
+    '<span style="color:var(--color-code-token-keyword)">const</span>',
+  );
 });
 
 test("renders code in an unknown language as plain text", async () => {

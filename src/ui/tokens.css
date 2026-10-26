@@ -28,6 +28,21 @@
   --color-code-inline-bg: #eaf1fe;
   --color-code-inline-text: #1e48b8;
   --color-code-border: transparent;
+  /* Syntax highlighting (lib/markdown.ts), the same in both color schemes. */
+  --color-code-background: #0d1117;
+  --color-code-foreground: #e6edf3;
+  --color-code-token-comment: #8b949e;
+  --color-code-token-keyword: #ff7b72;
+  --color-code-token-string: #a5d6ff;
+  --color-code-token-string-expression: #a5d6ff;
+  --color-code-token-constant: #79c0ff;
+  --color-code-token-function: #d2a8ff;
+  --color-code-token-parameter: #ffa657;
+  --color-code-token-punctuation: #e6edf3;
+  --color-code-token-link: #a5d6ff;
+  --color-code-token-inserted: #7ee787;
+  --color-code-token-deleted: #ffa198;
+  --color-code-token-changed: #ffa657;
   --color-warning-soft: #fef3c7;
   --color-warning-text: #854d0e;
   --color-success-soft: #dcfce7;
@@ -78,9 +93,6 @@
     --color-text: #e6e8eb;
     --color-text-muted: #9aa3ae;
     --color-accent: #7aaaff;
-    --color-accent-fill: #2563eb;
-    --color-accent-fill-hover: #3b74f0;
-    --color-on-accent: #ffffff;
     --color-accent-soft: #1a2640;
     --color-accent-strong: #a9c7ff;
     --color-focus: #7aaaff;
