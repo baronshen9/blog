@@ -1,0 +1,53 @@
+.frame {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  min-height: 100vh;
+  padding: var(--space-5) var(--space-4);
+}
+
+.siteName {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-weight: 600;
+}
+
+.siteName::before {
+  content: "";
+  width: 3px;
+  height: 1.1em;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-fill);
+}
+
+.card {
+  width: 100%;
+  max-width: 24rem;
+  padding: var(--space-6) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.title {
+  margin: 0 0 var(--space-5);
+  font-size: var(--text-xl);
+}
+
+/* The form stacks its fields, message, and single action evenly. */
+.card form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.card form > * {
+  margin: 0;
+}
+
+.card form > button {
+  width: 100%;
+}

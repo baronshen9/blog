@@ -9,6 +9,7 @@
   font-size: var(--text-sm);
   font-weight: 500;
   line-height: var(--leading-tight);
+  text-decoration: none;
   cursor: pointer;
 }
 
@@ -22,7 +23,7 @@
   color: var(--color-on-accent);
 }
 
-.primary:hover:enabled {
+.primary:is(a, :enabled):hover {
   background: var(--color-accent-fill-hover);
 }
 
@@ -32,6 +33,6 @@
   color: var(--color-text);
 }
 
-.secondary:hover:enabled {
+.secondary:is(a, :enabled):hover {
   background: var(--color-surface-muted);
 }
