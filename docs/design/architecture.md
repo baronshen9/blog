@@ -119,6 +119,15 @@ milestones.
 2. Missing, draft, or trashed posts render the not-found page.
 3. The body is rendered from Markdown on each request.
 
+**Reader browses the home page**
+
+1. `/` redirects to `/<SITE_DEFAULT_LANGUAGE>`.
+2. `app/[locale]` lists published posts through the `posts` published-post
+   query: newest first publication first, with a plain-text excerpt from
+   `lib`, ten per page (`?page=`); a page past the last is not found.
+3. Until M5 decides language filtering, both locales list posts of every
+   language, each linking to its own `/<language>/posts/<slug>`.
+
 **Search (M3)** matches the query as a case-insensitive substring (`ILIKE`)
 against title and body of published posts; there is no separate search
 service.

@@ -5,6 +5,8 @@ import {
   getPost,
   getPublishedPost,
   listPosts,
+  listPublishedPosts,
+  publishedPageSize,
   updatePost,
 } from ".";
 
@@ -196,6 +198,76 @@ test("concurrent saves never lose the first publication date", async () => {
   for (const { slug } of posts) {
     await expect(getPublishedPost("en", slug)).resolves.toMatchObject({
       slug,
+    });
+  }
+});
+
+// Publishes a new post and backdates its first publication to `day`.
+async function publishOn(
+  day: number,
+  content: Parameters<typeof createDraft>[0] = draft,
+) {
+  const post = await createDraft(content);
+  await updatePost(post.id, { ...content, status: "published" });
+  const publishedAt = new Date(Date.UTC(2026, 0, day));
+  await getDb().post.update({ where: { id: post.id }, data: { publishedAt } });
+  return post;
+}
+
+test("lists published posts newest first with an excerpt, in every language", async () => {
+  await publishOn(1, { ...draft, title: "Old", bodyMarkdown: "Old **body**" });
+  await publishOn(3, { ...draft, title: "新", language: "zh" });
+  await publishOn(2, { ...draft, title: "Middle" });
+
+  const { posts, page, pageCount } = await listPublishedPosts(1);
+
+  expect({ page, pageCount }).toEqual({ page: 1, pageCount: 1 });
+  expect(posts.map((post) => [post.language, post.title])).toEqual([
+    ["zh", "新"],
+    ["en", "Middle"],
+    ["en", "Old"],
+  ]);
+  expect(posts[2]).toEqual({
+    language: "en",
+    title: "Old",
+    slug: "old",
+    publishedAt: new Date(Date.UTC(2026, 0, 1)),
+    excerpt: "Old body",
+  });
+});
+
+test("never lists drafts, unpublished, or trashed posts", async () => {
+  await createDraft({ ...draft, title: "Draft" });
+  const unpublished = await publishOn(1, { ...draft, title: "Unpublished" });
+  await updatePost(unpublished.id, { ...draft, status: "draft" });
+  const trashed = await publishOn(2, { ...draft, title: "Trashed" });
+  await getDb().post.update({
+    where: { id: trashed.id },
+    data: { deletedAt: new Date() },
+  });
+
+  await expect(listPublishedPosts(1)).resolves.toEqual({
+    posts: [],
+    page: 1,
+    pageCount: 1,
+  });
+});
+
+test("pages through a long list and refuses pages that do not exist", async () => {
+  for (let day = 1; day <= publishedPageSize + 1; day++) {
+    await publishOn(day, { ...draft, title: `Day ${day}` });
+  }
+
+  const first = await listPublishedPosts(1);
+  const second = await listPublishedPosts(2);
+
+  expect(first.posts).toHaveLength(publishedPageSize);
+  expect(first.posts[0]?.title).toBe(`Day ${publishedPageSize + 1}`);
+  expect(second).toMatchObject({ page: 2, pageCount: 2 });
+  expect(second.posts.map((post) => post.title)).toEqual(["Day 1"]);
+  for (const page of [0, 3, 1.5, Number.NaN]) {
+    await expect(listPublishedPosts(page)).rejects.toMatchObject({
+      code: "NOT_FOUND",
     });
   }
 });

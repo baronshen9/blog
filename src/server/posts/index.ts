@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { slugify } from "@/lib";
+import { excerpt, slugify } from "@/lib";
 import { getDb } from "@/server/db";
 import { DomainError } from "@/server/errors";
 
@@ -26,6 +26,17 @@ export type PublishedPost = Pick<
   Post,
   "language" | "title" | "slug" | "bodyMarkdown"
 > & { publishedAt: Date };
+export type PublishedPostSummary = Omit<PublishedPost, "bodyMarkdown"> & {
+  excerpt: string;
+};
+export type PublishedPostPage = {
+  posts: PublishedPostSummary[];
+  page: number;
+  pageCount: number;
+};
+
+// Posts per page of the public list.
+export const publishedPageSize = 10;
 
 const postFields = {
   id: true,
@@ -108,6 +119,43 @@ export async function getPublishedPost(
     throw new DomainError("NOT_FOUND", "This post does not exist.");
   }
   return { ...post, publishedAt: post.publishedAt };
+}
+
+// A published-post query: one page of published posts outside the trash,
+// newest publication first, in every language until M5 decides which posts a
+// language's list shows. Pages count from 1; the first page exists even when
+// it is empty, and a page past the last is not found.
+export async function listPublishedPosts(
+  page: number,
+): Promise<PublishedPostPage> {
+  const where = { status: "published", deletedAt: null } as const;
+  const count = await getDb().post.count({ where });
+  const pageCount = Math.max(1, Math.ceil(count / publishedPageSize));
+  if (!Number.isSafeInteger(page) || page < 1 || page > pageCount) {
+    throw new DomainError("NOT_FOUND", "This page does not exist.");
+  }
+  const posts = await getDb().post.findMany({
+    where,
+    orderBy: [{ publishedAt: "desc" }, { id: "asc" }],
+    skip: (page - 1) * publishedPageSize,
+    take: publishedPageSize,
+    select: {
+      language: true,
+      title: true,
+      slug: true,
+      bodyMarkdown: true,
+      publishedAt: true,
+    },
+  });
+  return {
+    posts: posts.flatMap(({ bodyMarkdown, publishedAt, ...post }) =>
+      publishedAt
+        ? [{ ...post, publishedAt, excerpt: excerpt(bodyMarkdown) }]
+        : [],
+    ),
+    page,
+    pageCount,
+  };
 }
 
 export async function getPost(id: string): Promise<Post> {
