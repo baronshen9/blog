@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { startTransition, useActionState, type FormEvent } from "react";
 import { editPostAction, type EditorState, type EditorValues } from "./actions";
 
 const languageNames = { en: "English", zh: "中文" } as const;
@@ -8,27 +8,37 @@ const languageNames = { en: "English", zh: "中文" } as const;
 export function PostEditor({ initial }: { initial: EditorValues }) {
   const [state, action, pending] = useActionState<EditorState, FormData>(
     editPostAction,
-    { values: initial },
+    {},
   );
-  const { values } = state;
+
+  // Submitted here rather than through the form's action prop, so React does
+  // not reset the fields afterwards: the chosen language and anything typed
+  // while the action runs stay as they are.
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const { submitter } = event.nativeEvent as SubmitEvent;
+    const form = new FormData(event.currentTarget, submitter);
+    startTransition(() => action(form));
+  }
+
   return (
-    <form action={action}>
-      {values.id && <input type="hidden" name="id" value={values.id} />}
+    <form onSubmit={submit}>
+      {initial.id && <input type="hidden" name="id" value={initial.id} />}
       <p>
         <label>
-          Title <input name="title" defaultValue={values.title} />
+          Title <input name="title" defaultValue={initial.title} />
         </label>
       </p>
       <p>
-        {values.id ? (
+        {initial.id ? (
           <>
-            Language: {languageNames[values.language]}
-            <input type="hidden" name="language" value={values.language} />
+            Language: {languageNames[initial.language]}
+            <input type="hidden" name="language" value={initial.language} />
           </>
         ) : (
           <label>
             Language{" "}
-            <select name="language" defaultValue={values.language}>
+            <select name="language" defaultValue={initial.language}>
               <option value="en">{languageNames.en}</option>
               <option value="zh">{languageNames.zh}</option>
             </select>
@@ -41,7 +51,7 @@ export function PostEditor({ initial }: { initial: EditorValues }) {
           <br />
           <textarea
             name="bodyMarkdown"
-            defaultValue={values.bodyMarkdown}
+            defaultValue={initial.bodyMarkdown}
             rows={20}
             cols={80}
           />

@@ -33,21 +33,29 @@ const postFields = {
 } as const;
 
 // A new post is a draft in its own translation group. Its slug comes from the
-// title, or is a short random id when the title has no Latin characters.
+// title, or is a short random id when the title has no Latin characters; when
+// a concurrent save takes the same slug first, the next free one is used.
 export async function createDraft({
   language,
   ...content
 }: PostContent & { language: Language }): Promise<Post> {
   const { title, bodyMarkdown } = validate(content);
-  return getDb().post.create({
-    data: {
-      language,
-      title,
-      bodyMarkdown,
-      slug: await availableSlug(language, slugify(title) || shortId()),
-    },
-    select: postFields,
-  });
+  const base = slugify(title) || shortId();
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await getDb().post.create({
+        data: {
+          language,
+          title,
+          bodyMarkdown,
+          slug: await availableSlug(language, base),
+        },
+        select: postFields,
+      });
+    } catch (error) {
+      if (attempt === 3 || !isUniqueViolation(error)) throw error;
+    }
+  }
 }
 
 // Changes the content only; status and slug stay as they are.
@@ -104,6 +112,11 @@ async function availableSlug(language: Language, base: string) {
   let slug = base;
   for (let n = 2; taken.has(slug); n++) slug = `${base}-${n}`;
   return slug;
+}
+
+// Prisma's error code for a unique constraint violation.
+function isUniqueViolation(error: unknown): boolean {
+  return (error as { code?: unknown } | null)?.code === "P2002";
 }
 
 function shortId(): string {

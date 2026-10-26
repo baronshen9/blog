@@ -15,6 +15,7 @@ test("the owner writes, previews, saves, and reopens a draft", async ({
   await expect(page).toHaveURL(/\/admin\/posts\/new$/);
 
   await page.getByLabel("Title", { exact: true }).fill(title);
+  await page.getByLabel("Language").selectOption("zh");
   await page
     .getByLabel("Body (Markdown)")
     .fill("## Heading\n\n- item\n\n```js\nconst x = 1;\n```\n");
@@ -26,10 +27,12 @@ test("the owner writes, previews, saves, and reopens a draft", async ({
     preview.locator("pre.shiki span", { hasText: /^const$/ }),
   ).toHaveAttribute("style", /color:/);
   await expect(page.getByLabel("Title", { exact: true })).toHaveValue(title);
+  await expect(page.getByLabel("Language")).toHaveValue("zh");
 
   await page.getByRole("button", { name: "Save draft" }).click();
   await expect(page).toHaveURL(/\/admin\/posts\/[0-9a-f-]{36}$/);
   await expect(main.getByText("Status: Draft")).toBeVisible();
+  await expect(main.getByText("Language: 中文")).toBeVisible();
 
   await page.getByLabel("Body (Markdown)").fill("Edited body");
   await page.getByRole("button", { name: "Save draft" }).click();

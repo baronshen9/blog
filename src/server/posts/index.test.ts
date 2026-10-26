@@ -33,6 +33,16 @@ test("gives a taken slug a numeric suffix within a language", async () => {
   expect([second.slug, third.slug]).toEqual(["first-post-2", "first-post-3"]);
 });
 
+test("gives concurrent drafts with the same title distinct slugs", async () => {
+  const posts = await Promise.all([1, 2, 3].map(() => createDraft(draft)));
+
+  expect(posts.map((post) => post.slug).sort()).toEqual([
+    "first-post",
+    "first-post-2",
+    "first-post-3",
+  ]);
+});
+
 test("uses a short id as the slug of a title without Latin characters", async () => {
   const post = await createDraft({ ...draft, language: "zh", title: "你好" });
 
