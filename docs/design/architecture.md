@@ -37,6 +37,7 @@ in [`docs/decisions/`](../decisions/).
 | Validation | zod | API request and response schemas shared by route handlers and the MCP server |
 | MCP | `@modelcontextprotocol/sdk`, stdio transport, run on the host with `node` ([0003](../decisions/0003-mcp-as-host-stdio-client.md)) | Local Claude Code and Codex support stdio servers |
 | Testing | Vitest; Testcontainers for Postgres; Playwright for smoke journeys | Integration tests run against the real engine |
+| Styling | CSS Modules and global design tokens (CSS custom properties), light and dark through `prefers-color-scheme`, system fonts ([0005](../decisions/0005-css-modules-and-design-tokens.md)) | Built into Next.js, no runtime or extra dependency; tokens keep every screen consistent |
 | Formatting and lint | Prettier, ESLint (typescript-eslint, Next config) | Module boundaries are enforced with ESLint `no-restricted-imports` |
 | Packaging and local runtime | Docker Compose | `web` and `db` services; nothing else to install besides Node for development |
 
@@ -53,7 +54,7 @@ All application code lives under `src/`.
 | `server/db` | The Prisma client | — |
 | `contract/` | zod schemas and types of the HTTP API | — |
 | `lib/` | Pure functions: Markdown rendering, slugs, excerpts | — |
-| `ui/` | Presentational React components; no data access | `lib` |
+| `ui/` | Presentational React components and their CSS Modules, plus the global design tokens (`ui/tokens.css`); no data access | `lib` |
 | `mcp/` | The stdio MCP server; reaches the blog only over HTTP | `contract` |
 
 Dependencies point inward toward domain logic. Only `server/` imports Prisma,
@@ -159,6 +160,36 @@ service.
   for a new post. Interface translation and the language switch arrive in M5 ([0004](../decisions/0004-language-prefixed-urls-and-translation-groups.md)).
   The admin is English only.
 
+## Visual design
+
+The approved direction is B (technical): cool neutral surfaces, white cards on
+a light gray page, a blue accent, compact language labels, and dark code
+blocks. Reference mockups: [light](visual/direction-b-light.png) and
+[dark](visual/direction-b-dark.png). The language switch and the Chinese
+interface labels they show arrive in M5; until then the interface text is
+English.
+
+- **Tokens:** `src/ui/tokens.css` defines every color, spacing step, radius,
+  font stack, and font size as a CSS custom property, with a dark set under
+  `@media (prefers-color-scheme: dark)`. Components use tokens only: no raw
+  color values, no inline styles.
+- **Fonts:** system stacks only — sans (`-apple-system`, `PingFang SC`,
+  `Segoe UI`, `Microsoft YaHei`, sans-serif) for text and headings, and a
+  monospace stack for code.
+- **Frames:** the public frame (`SiteFrame`: header with the site name, a
+  content column of about 860 px, footer) and the admin frame (`AdminFrame`:
+  dark top bar with navigation and sign-out, full-width work area).
+- **Components in `ui/`:** `PostCard`, `LanguageLabel`, `Prose` (rendered
+  Markdown, including code, quotes, lists, and tables), `Pager`, `Button`,
+  `StatusBadge`, `Field` (labelled inputs and errors), and `EditorLayout`
+  (Markdown and preview side by side, stacked below 900 px).
+- **Code blocks:** Shiki renders with one dark theme in both color schemes, so
+  code looks the same everywhere.
+- **Site name:** read from `SITE_NAME` through `server/config`, default
+  "Field Notes".
+- **Responsive:** one column below 640 px; code blocks and tables scroll
+  horizontally inside their own box.
+
 ## Test strategy
 
 | Behavior | Primary guard | Evidence |
@@ -169,6 +200,7 @@ service.
 | MCP tool behavior and error wording | `contract` schemas | Unit tests with a stubbed `fetch` |
 | Module dependency direction | ESLint `no-restricted-imports` | `scripts/check.sh` |
 | Key user journeys | The integrated stack | `scripts/smoke.sh` |
+| Visual design | Design tokens and `ui/` components | Light and dark screenshots of changed screens in each interface pull request, reviewed by the user at milestone acceptance |
 
 Integration tests share one Postgres container per run. Test files run one at
 a time, and a Vitest setup file truncates every application table before each

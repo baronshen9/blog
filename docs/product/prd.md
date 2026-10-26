@@ -244,11 +244,35 @@ Acceptance criteria:
 - Post lists, tag pages, and search show posts in the selected interface
   language.
 
+### US-15 Visual design
+
+As a reader and as the owner, I want the site and the admin to look
+consistent and polished so that reading and writing are pleasant on any
+screen.
+
+Acceptance criteria:
+
+- Public pages and the admin follow the approved visual direction
+  ([light](../design/visual/direction-b-light.png),
+  [dark](../design/visual/direction-b-dark.png)): a header with the site name;
+  the home page lists posts as cards with date, language label, and excerpt;
+  the post page shows the body in a card with readable typography and dark,
+  syntax-highlighted code blocks; the admin has a dark top bar, a styled sign-in
+  page and post list, and an editor with Markdown and preview side by side.
+- The color scheme follows the system setting: light and dark are both
+  complete, and body text meets WCAG AA contrast in both.
+- Pages work from phone width (360 px) to desktop without horizontal scrolling,
+  except inside code blocks and tables.
+- The site name is configurable and defaults to "Field Notes".
+- Only system fonts are used; no font or style sheet is loaded from another
+  host.
+- The language switch shown in the mockups arrives with US-13 in M5.
+
 ## Milestones
 
 | Milestone | Value delivered | Stories |
 | --- | --- | --- |
-| M1 Write and read | The owner writes, drafts, and publishes Markdown posts in the admin; readers browse and read them; the blog runs in Docker | US-1, US-2, US-3, US-4 |
+| M1 Write and read | The owner writes, drafts, and publishes Markdown posts in the admin; readers browse and read them; the blog runs in Docker | US-1, US-2, US-3, US-4, US-15 |
 | M2 Manage from AI | The owner manages posts from Claude Code or Codex through MCP, with tokens and a recoverable trash | US-5, US-6, US-7 |
 | M3 Organize and find | Readers browse by tag and search in Chinese and English; posts include uploaded images | US-8, US-9, US-10 |
 | M4 Reader comments | Readers comment without an account; the owner moderates before anything is public | US-11, US-12 |
@@ -279,3 +303,4 @@ Acceptance criteria:
 
 | Date | Change | Reason | Issue |
 | --- | --- | --- | --- |
+| 2026-10-27 | Added US-15 (visual design) to M1 | M1 acceptance found the front end unstyled; no requirement covered how the blog looks | #17 |
