@@ -1,11 +1,5 @@
-import { readFileSync } from "node:fs";
-import { parseEnv } from "node:util";
 import { expect, test } from "@playwright/test";
-
-// scripts/smoke.sh starts the stack with .env.example, so its owner is ours.
-const env = parseEnv(readFileSync(".env.example", "utf8"));
-const username = env.OWNER_USERNAME ?? "";
-const password = env.OWNER_PASSWORD ?? "";
+import { password, username } from "./owner";
 
 test("only the signed-in owner reaches the admin", async ({ page }) => {
   await page.goto("/admin");

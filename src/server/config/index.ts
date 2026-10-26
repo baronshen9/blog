@@ -4,6 +4,7 @@ const schema = z.object({
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
   OWNER_USERNAME: z.string().min(1),
   OWNER_PASSWORD: z.string().min(1),
+  SITE_DEFAULT_LANGUAGE: z.enum(["zh", "en"]),
 });
 
 export type Config = z.infer<typeof schema>;

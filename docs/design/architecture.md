@@ -146,8 +146,8 @@ service.
 - **Logging:** one line per request and per unexpected error to stdout. Never
   log passwords, tokens, cookies, or reader IP addresses.
 - **Language:** public routes live under `/<locale>/` with `zh` and `en`;
-  `SITE_DEFAULT_LANGUAGE` picks the target of `/`. Interface translation and
-  the language switch arrive in M5 ([0004](../decisions/0004-language-prefixed-urls-and-translation-groups.md)).
+  `SITE_DEFAULT_LANGUAGE` picks the target of `/` and the language preselected
+  for a new post. Interface translation and the language switch arrive in M5 ([0004](../decisions/0004-language-prefixed-urls-and-translation-groups.md)).
   The admin is English only.
 
 ## Test strategy
