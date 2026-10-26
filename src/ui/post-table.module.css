@@ -49,6 +49,11 @@
   text-underline-offset: 2px;
 }
 
+/* Titles wrap, but not into a sliver: on phones the box scrolls instead. */
+.table td:first-child {
+  min-width: 11rem;
+}
+
 .table td:not(:first-child) {
   white-space: nowrap;
 }
@@ -70,9 +75,5 @@ td.date {
 @media (max-width: 640px) {
   .table :is(th, td) {
     padding: var(--space-2) var(--space-3);
-  }
-
-  .date {
-    display: none;
   }
 }

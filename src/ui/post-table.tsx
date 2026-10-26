@@ -13,7 +13,7 @@ type PostRow = {
 };
 
 // The owner's posts with their language, status, and last change, each title
-// opening the post's editor. Phone widths leave out the last change.
+// opening the post's editor.
 export function PostTable({ posts }: { posts: PostRow[] }) {
   if (posts.length === 0) {
     return <p className={styles.empty}>No posts yet.</p>;
@@ -26,7 +26,7 @@ export function PostTable({ posts }: { posts: PostRow[] }) {
             <th>Title</th>
             <th>Language</th>
             <th>Status</th>
-            <th className={styles.date}>Updated</th>
+            <th>Updated</th>
           </tr>
         </thead>
         <tbody>
