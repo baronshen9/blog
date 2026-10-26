@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { DomainError } from "@/server/errors";
 import { listPublishedPosts } from "@/server/posts";
-import { LanguageLabel } from "@/ui";
+import { PageTitle, Pager, PostCard } from "@/ui";
 
 export const metadata: Metadata = { title: "Posts" };
 
@@ -34,44 +33,24 @@ export default async function HomePage({
     if (error instanceof DomainError && error.code === "NOT_FOUND") notFound();
     throw error;
   });
-  const pageHref = (n: number) =>
-    n === 1 ? `/${locale}` : `/${locale}?page=${n}`;
   return (
     <main>
-      <h1>Posts</h1>
+      <PageTitle>Posts</PageTitle>
       {posts.length === 0 && <p>No posts yet.</p>}
-      {posts.map((post) => (
-        <article key={`${post.language}/${post.slug}`}>
-          <h2>
-            <Link href={`/${post.language}/posts/${post.slug}`}>
-              {post.title}
-            </Link>
-          </h2>
-          <p>
-            <time dateTime={post.publishedAt.toISOString()}>
-              {post.publishedAt.toISOString().slice(0, 10)}
-            </time>{" "}
-            <LanguageLabel language={post.language} />
-          </p>
-          <p>{post.excerpt}</p>
-        </article>
+      {posts.map(({ language, slug, ...post }) => (
+        <PostCard
+          key={`${language}/${slug}`}
+          href={`/${language}/posts/${slug}`}
+          language={language}
+          {...post}
+        />
       ))}
       {pageCount > 1 && (
-        <nav aria-label="Pages">
-          {current > 1 && (
-            <Link href={pageHref(current - 1)} rel="prev">
-              Newer posts
-            </Link>
-          )}{" "}
-          <span>
-            Page {current} of {pageCount}
-          </span>{" "}
-          {current < pageCount && (
-            <Link href={pageHref(current + 1)} rel="next">
-              Older posts
-            </Link>
-          )}
-        </nav>
+        <Pager
+          page={current}
+          pageCount={pageCount}
+          hrefFor={(n) => (n === 1 ? `/${locale}` : `/${locale}?page=${n}`)}
+        />
       )}
     </main>
   );
