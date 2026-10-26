@@ -69,21 +69,22 @@ export async function createDraft({
 
 // Changes the content, and the status when one is given; the slug never
 // changes. The first publication sets publishedAt, which unpublishing and
-// publishing again keep.
+// publishing again keep; only a publication writes it, and only while it is
+// empty, so concurrent saves cannot lose or move it.
 export async function updatePost(
   id: string,
   { status, ...content }: PostContent & { status?: PostStatus },
 ): Promise<Post> {
-  const post = await getPost(id);
-  return getDb().post.update({
-    where: { id },
-    data: {
-      ...validate(content),
-      status,
-      publishedAt:
-        post.publishedAt ?? (status === "published" ? new Date() : null),
-    },
-    select: postFields,
+  const data = { ...validate(content), status };
+  await getPost(id);
+  return getDb().$transaction(async (tx) => {
+    if (status === "published") {
+      await tx.post.updateMany({
+        where: { id, publishedAt: null },
+        data: { publishedAt: new Date() },
+      });
+    }
+    return tx.post.update({ where: { id }, data, select: postFields });
   });
 }
 

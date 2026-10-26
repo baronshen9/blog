@@ -179,3 +179,23 @@ test("never shows a trashed post publicly", async () => {
     code: "NOT_FOUND",
   });
 });
+
+test("concurrent saves never lose the first publication date", async () => {
+  const posts = await Promise.all(
+    Array.from({ length: 10 }, () => createDraft(draft)),
+  );
+
+  await Promise.all(
+    posts.flatMap(({ id }) => [
+      updatePost(id, { ...draft, status: "published" }),
+      updatePost(id, draft),
+      updatePost(id, { ...draft, status: "published" }),
+    ]),
+  );
+
+  for (const { slug } of posts) {
+    await expect(getPublishedPost("en", slug)).resolves.toMatchObject({
+      slug,
+    });
+  }
+});
