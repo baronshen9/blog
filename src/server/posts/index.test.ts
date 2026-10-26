@@ -34,12 +34,16 @@ test("gives a taken slug a numeric suffix within a language", async () => {
 });
 
 test("gives concurrent drafts with the same title distinct slugs", async () => {
-  const posts = await Promise.all([1, 2, 3].map(() => createDraft(draft)));
+  const posts = await Promise.all(
+    Array.from({ length: 5 }, () => createDraft(draft)),
+  );
 
   expect(posts.map((post) => post.slug).sort()).toEqual([
     "first-post",
     "first-post-2",
     "first-post-3",
+    "first-post-4",
+    "first-post-5",
   ]);
 });
 

@@ -21,12 +21,20 @@ export function PostEditor({ initial }: { initial: EditorValues }) {
     startTransition(() => action(form));
   }
 
+  // Saving a new post opens it in a new editor, which would drop anything
+  // typed meanwhile, so its fields are read-only until the save ends.
+  const creating = pending && !initial.id;
   return (
     <form onSubmit={submit}>
       {initial.id && <input type="hidden" name="id" value={initial.id} />}
       <p>
         <label>
-          Title <input name="title" defaultValue={initial.title} />
+          Title{" "}
+          <input
+            name="title"
+            defaultValue={initial.title}
+            readOnly={creating}
+          />
         </label>
       </p>
       <p>
@@ -38,7 +46,11 @@ export function PostEditor({ initial }: { initial: EditorValues }) {
         ) : (
           <label>
             Language{" "}
-            <select name="language" defaultValue={initial.language}>
+            <select
+              name="language"
+              defaultValue={initial.language}
+              disabled={creating}
+            >
               <option value="en">{languageNames.en}</option>
               <option value="zh">{languageNames.zh}</option>
             </select>
@@ -52,6 +64,7 @@ export function PostEditor({ initial }: { initial: EditorValues }) {
           <textarea
             name="bodyMarkdown"
             defaultValue={initial.bodyMarkdown}
+            readOnly={creating}
             rows={20}
             cols={80}
           />

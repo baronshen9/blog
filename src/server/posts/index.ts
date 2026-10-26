@@ -35,13 +35,15 @@ const postFields = {
 // A new post is a draft in its own translation group. Its slug comes from the
 // title, or is a short random id when the title has no Latin characters; when
 // a concurrent save takes the same slug first, the next free one is used.
+// Every round of colliding saves lets at least one through, so the bound is
+// reached only by an implausible number of simultaneous saves.
 export async function createDraft({
   language,
   ...content
 }: PostContent & { language: Language }): Promise<Post> {
   const { title, bodyMarkdown } = validate(content);
   const base = slugify(title) || shortId();
-  for (let attempt = 1; ; attempt++) {
+  for (let attempt = 1; attempt <= 10; attempt++) {
     try {
       return await getDb().post.create({
         data: {
@@ -53,9 +55,10 @@ export async function createDraft({
         select: postFields,
       });
     } catch (error) {
-      if (attempt === 3 || !isUniqueViolation(error)) throw error;
+      if (!isUniqueViolation(error)) throw error;
     }
   }
+  throw new DomainError("CONFLICT", "No free slug was found; save again.");
 }
 
 // Changes the content only; status and slug stay as they are.
