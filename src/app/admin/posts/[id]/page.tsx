@@ -28,9 +28,17 @@ export default async function EditPostPage({
         <Link href="/admin">All posts</Link>
       </p>
       <h1>Edit post</h1>
-      <p>Status: {post.status === "draft" ? "Draft" : "Published"}</p>
+      {post.status === "draft" ? (
+        <p>Status: Draft</p>
+      ) : (
+        <p>
+          Status: Published —{" "}
+          <Link href={`/${post.language}/posts/${post.slug}`}>View post</Link>
+        </p>
+      )}
       <PostEditor
         key={post.id}
+        status={post.status}
         initial={{
           id: post.id,
           language: post.language,

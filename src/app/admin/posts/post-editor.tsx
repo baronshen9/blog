@@ -1,11 +1,19 @@
 "use client";
 
 import { startTransition, useActionState, type FormEvent } from "react";
+import type { PostStatus } from "@/server/posts";
 import { editPostAction, type EditorState, type EditorValues } from "./actions";
 
 const languageNames = { en: "English", zh: "中文" } as const;
 
-export function PostEditor({ initial }: { initial: EditorValues }) {
+// `status` is the saved status of an existing post; a new post has none.
+export function PostEditor({
+  initial,
+  status,
+}: {
+  initial: EditorValues;
+  status?: PostStatus;
+}) {
   const [state, action, pending] = useActionState<EditorState, FormData>(
     editPostAction,
     {},
@@ -71,10 +79,22 @@ export function PostEditor({ initial }: { initial: EditorValues }) {
         </label>
       </p>
       {state.error && <p role="alert">{state.error}</p>}
-      {state.saved && <p role="status">Draft saved.</p>}
+      {state.notice && <p role="status">{state.notice}</p>}
       <button type="submit" name="intent" value="save" disabled={pending}>
-        Save draft
+        {status === "published" ? "Save" : "Save draft"}
       </button>{" "}
+      {status && (
+        <>
+          <button
+            type="submit"
+            name="intent"
+            value={status === "draft" ? "publish" : "unpublish"}
+            disabled={pending}
+          >
+            {status === "draft" ? "Publish" : "Unpublish"}
+          </button>{" "}
+        </>
+      )}
       <button type="submit" name="intent" value="preview" disabled={pending}>
         Preview
       </button>
