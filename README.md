@@ -28,11 +28,11 @@ can reach its database. Sign in to the admin at
 them afterwards.
 
 For development with hot reload, start only the database and run Next.js on
-the host:
+the host; `npm run dev` applies pending migrations first:
 
 ```bash
 npm ci
-docker compose up --detach db
+docker compose up --detach --wait db
 npm run dev
 ```
 

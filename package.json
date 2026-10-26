@@ -7,7 +7,7 @@
     "node": ">=24.7 <25"
   },
   "scripts": {
-    "predev": "prisma generate",
+    "predev": "prisma generate && prisma migrate deploy",
     "dev": "next dev",
     "prebuild": "prisma generate",
     "build": "next build",
