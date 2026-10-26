@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { Button, Field } from "@/ui";
+import { Button, Field, Notice } from "@/ui";
 import { signInAction, type SignInState } from "./actions";
 
 export function SignInForm() {
@@ -27,7 +27,7 @@ export function SignInForm() {
           required
         />
       </Field>
-      {state.error && <p role="alert">{state.error}</p>}
+      {state.error && <Notice tone="error">{state.error}</Notice>}
       <Button type="submit" variant="primary" disabled={pending}>
         Sign in
       </Button>

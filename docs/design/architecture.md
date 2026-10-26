@@ -177,12 +177,16 @@ English.
   `Segoe UI`, `Microsoft YaHei`, sans-serif) for text and headings, and a
   monospace stack for code.
 - **Frames:** the public frame (`SiteFrame`: header with the site name, a
-  content column of about 860 px, footer) and the admin frame (`AdminFrame`:
-  dark top bar with navigation and sign-out, full-width work area).
+  content column of about 860 px, footer), the admin frame (`AdminFrame`:
+  dark top bar with navigation and sign-out, full-width work area), and the
+  sign-in frame (`SignInFrame`: a centered card). `AdminFrame` marks the
+  current section, which `app/` derives from the pathname and passes in.
 - **Components in `ui/`:** `PostCard`, `LanguageLabel`, `Prose` (rendered
-  Markdown, including code, quotes, lists, and tables), `Pager`, `Button`,
-  `StatusBadge`, `Field` (labelled inputs and errors), and `EditorLayout`
-  (Markdown and preview side by side, stacked below 900 px).
+  Markdown, including code, quotes, lists, and tables), `Pager`, `Button` and
+  `ButtonLink`, `StatusBadge`, `Field` (labelled inputs and errors), `Notice`
+  (a form's error or success message), `PageHeader`, `PostTable` (the admin
+  post list), and `EditorLayout` (Markdown and preview side by side, stacked
+  below 900 px).
 - **Code blocks:** Shiki renders with one dark theme in both color schemes, so
   code looks the same everywhere.
 - **Site name:** read from `SITE_NAME` through `server/config`, default

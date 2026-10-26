@@ -8,7 +8,7 @@ test("the owner writes, previews, saves, and reopens a draft", async ({
   const main = page.getByRole("main");
   await signIn(page);
 
-  await page.getByRole("link", { name: "New post" }).click();
+  await main.getByRole("link", { name: "New post" }).click();
   await page.getByLabel("Body (Markdown)").fill("Text without a title");
   await page.getByRole("button", { name: "Save draft" }).click();
   await expect(main.getByRole("alert")).toHaveText("Enter a title.");
@@ -32,13 +32,18 @@ test("the owner writes, previews, saves, and reopens a draft", async ({
   await page.getByRole("button", { name: "Save draft" }).click();
   await expect(page).toHaveURL(/\/admin\/posts\/[0-9a-f-]{36}$/);
   await expect(main.getByText("Status: Draft")).toBeVisible();
-  await expect(main.getByText("Language: 中文")).toBeVisible();
+  await expect(page.getByLabel("Language")).toHaveValue("zh");
+  await expect(page.getByLabel("Language")).toBeDisabled();
 
   await page.getByLabel("Body (Markdown)").fill("Edited body");
   await page.getByRole("button", { name: "Save draft" }).click();
   await expect(main.getByRole("status")).toHaveText("Draft saved.");
 
-  await page.getByRole("link", { name: "All posts" }).click();
+  const posts = page
+    .getByRole("navigation", { name: "Admin" })
+    .getByRole("link", { name: "Posts", exact: true });
+  await expect(posts).toHaveAttribute("aria-current", "page");
+  await posts.click();
   const row = page.getByRole("row", { name: title });
   await expect(
     row.getByRole("cell", { name: "Draft", exact: true }),

@@ -42,7 +42,7 @@ test("the owner publishes a draft that readers open until it is unpublished", as
   const main = page.getByRole("main");
   await signIn(page);
 
-  await page.getByRole("link", { name: "New post" }).click();
+  await main.getByRole("link", { name: "New post" }).click();
   await page.getByLabel("Title", { exact: true }).fill(title);
   await page.getByLabel("Language").selectOption("en");
   await page

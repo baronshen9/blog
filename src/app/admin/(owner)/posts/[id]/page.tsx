@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { DomainError } from "@/server/errors";
 import { getPost } from "@/server/posts";
-import { StatusBadge } from "@/ui";
 import { requireOwner } from "@/app/admin/session";
 import { PostEditor } from "@/app/admin/(owner)/posts/post-editor";
 
@@ -25,23 +23,12 @@ export default async function EditPostPage({
 
   return (
     <main>
-      <p>
-        <Link href="/admin">All posts</Link>
-      </p>
-      <h1>Edit post</h1>
-      {post.status === "draft" ? (
-        <p>
-          Status: <StatusBadge status="draft" />
-        </p>
-      ) : (
-        <p>
-          Status: <StatusBadge status="published" /> —{" "}
-          <Link href={`/${post.language}/posts/${post.slug}`}>View post</Link>
-        </p>
-      )}
       <PostEditor
         key={post.id}
-        status={post.status}
+        post={{
+          status: post.status,
+          path: `/${post.language}/posts/${post.slug}`,
+        }}
         initial={{
           id: post.id,
           language: post.language,

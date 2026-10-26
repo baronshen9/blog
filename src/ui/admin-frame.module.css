@@ -27,6 +27,7 @@
 
 .nav a,
 .signOut {
+  white-space: nowrap;
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-md);
   color: var(--color-bar-muted);
@@ -34,6 +35,7 @@
 }
 
 .nav a:hover,
+.nav a[aria-current="page"],
 .signOut:hover {
   background: var(--color-bar-hover);
   color: var(--color-bar-text);
@@ -49,4 +51,14 @@
 .work {
   flex: 1;
   padding: var(--space-5);
+}
+
+@media (max-width: 640px) {
+  .bar {
+    padding: var(--space-2) var(--space-4);
+  }
+
+  .work {
+    padding: var(--space-4);
+  }
 }
