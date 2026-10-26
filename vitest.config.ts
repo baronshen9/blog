@@ -7,6 +7,8 @@ export default defineConfig({
   },
   test: {
     include: ["src/**/*.test.ts"],
+    // Test files share one database; see src/server/db/testing/setup.ts.
+    fileParallelism: false,
     globalSetup: ["src/server/db/testing/global-setup.ts"],
     setupFiles: ["src/server/db/testing/setup.ts"],
     hookTimeout: 120_000,

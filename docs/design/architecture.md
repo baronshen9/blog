@@ -161,8 +161,9 @@ service.
 | Module dependency direction | ESLint `no-restricted-imports` | `scripts/check.sh` |
 | Key user journeys | The integrated stack | `scripts/smoke.sh` |
 
-Integration tests share one Postgres container per run and truncate tables
-between tests.
+Integration tests share one Postgres container per run. Test files run one at
+a time, and a Vitest setup file truncates every application table before each
+test, so each test creates the data it needs and writes no cleanup.
 
 ## Commands
 

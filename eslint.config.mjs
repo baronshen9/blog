@@ -82,6 +82,15 @@ export default defineConfig([
     ],
   ),
   restrict(
+    ["src/server/db/testing/**"],
+    [
+      parentRelative,
+      moduleInternals,
+      nextRequestApis,
+      allowOnly(["server/db"], "Test setup depends only on the Prisma client."),
+    ],
+  ),
+  restrict(
     ["src/ui/**"],
     [
       parentRelative,
