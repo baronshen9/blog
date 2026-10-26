@@ -12,6 +12,8 @@ cleanup() { "${compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || t
 trap cleanup EXIT
 trap 'echo "smoke: FAILED" >&2' ERR
 
+# The browser for the journeys; a no-op once the matching version is installed.
+npx --no-install playwright install --only-shell chromium
 "${compose[@]}" up --build --detach --wait --wait-timeout 180
 BASE_URL="http://$("${compose[@]}" port web 3000)" npx --no-install playwright test
 

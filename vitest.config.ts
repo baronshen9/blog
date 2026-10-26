@@ -10,5 +10,6 @@ export default defineConfig({
     globalSetup: ["src/server/db/testing/global-setup.ts"],
     setupFiles: ["src/server/db/testing/setup.ts"],
     hookTimeout: 120_000,
+    env: { OWNER_USERNAME: "owner", OWNER_PASSWORD: "test-owner-password" },
   },
 });

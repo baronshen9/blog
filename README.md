@@ -22,7 +22,10 @@ docker compose up --build
 ```
 
 The blog is served at <http://127.0.0.1:3000>; `/healthz` reports whether it
-can reach its database. Owner credentials come from `.env`.
+can reach its database. Sign in to the admin at
+<http://127.0.0.1:3000/admin> with `OWNER_USERNAME` and `OWNER_PASSWORD` from
+`.env`; the owner is created from them on first start and never changed by
+them afterwards.
 
 For development with hot reload, start only the database and run Next.js on
 the host:

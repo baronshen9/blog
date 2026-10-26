@@ -45,7 +45,7 @@ export default defineConfig([
     "next-env.d.ts",
   ]),
   restrict(
-    ["src/app/**"],
+    ["src/app/**", "src/proxy.ts", "src/instrumentation.ts"],
     [
       parentRelative,
       moduleInternals,
