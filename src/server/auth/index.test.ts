@@ -6,7 +6,6 @@ import { ensureOwner, getSessionOwner, signIn, signOut } from ".";
 const owner = { username: "owner", password: "correct horse battery" };
 
 beforeEach(async () => {
-  await getDb().owner.deleteMany();
   await ensureOwner(owner);
 });
 

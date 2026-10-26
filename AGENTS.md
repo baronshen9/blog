@@ -48,7 +48,9 @@ Copy `.env.example` to `.env` before running Compose. Node 24 is pinned in
 - Read configuration only through `src/server/config`; add every new variable
   to `.env.example`.
 - Tests sit next to the code as `*.test.ts`; database tests use the shared
-  Testcontainers Postgres, never mocks of Prisma.
+  Testcontainers Postgres, never mocks of Prisma. Every test starts with empty
+  tables (`src/server/db/testing/setup.ts`); create the data a test needs in
+  the test and write no cleanup.
 - Use only erasable TypeScript syntax in `src/mcp/` so Node runs it without a
   build.
 - Next.js 16 differs from older versions; check `node_modules/next/dist/docs/`
