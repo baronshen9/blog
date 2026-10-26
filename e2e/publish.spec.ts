@@ -9,6 +9,30 @@ async function expectNotFound(page: Page, url: string) {
   ).toBeVisible();
 }
 
+// The home page that / leads to with .env.example's SITE_DEFAULT_LANGUAGE.
+async function homeEntry(page: Page, title: string) {
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/en$/);
+  return page.getByRole("article").filter({
+    has: page.getByRole("heading", { name: title }),
+  });
+}
+
+// A phone-width page shows its content without sideways scrolling.
+async function expectFitsPhone(page: Page, url: string) {
+  await page.setViewportSize({ width: 360, height: 740 });
+  await page.goto(url);
+  await expect(page.locator('meta[name="viewport"]')).toHaveAttribute(
+    "content",
+    /width=device-width/,
+  );
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+  await page.setViewportSize({ width: 1280, height: 720 });
+}
+
 test("the owner publishes a draft that readers open until it is unpublished", async ({
   page,
 }) => {
@@ -23,11 +47,15 @@ test("the owner publishes a draft that readers open until it is unpublished", as
   await page.getByLabel("Language").selectOption("en");
   await page
     .getByLabel("Body (Markdown)")
-    .fill("Intro text\n\n```js\nconst x = 1;\n```\n");
+    .fill(
+      `Intro text https://example.com/${"x".repeat(120)}\n\n` +
+        `\`\`\`js\nconst x = 1; // ${"wide ".repeat(40)}\n\`\`\`\n`,
+    );
   await page.getByRole("button", { name: "Save draft" }).click();
   await expect(main.getByText("Status: Draft")).toBeVisible();
   const editor = page.url();
   await expectNotFound(page, url);
+  await expect(await homeEntry(page, title)).toHaveCount(0);
 
   await page.goto(editor);
   await page.getByRole("button", { name: "Publish" }).click();
@@ -38,7 +66,17 @@ test("the owner publishes a draft that readers open until it is unpublished", as
     url,
   );
 
-  await page.goto(url);
+  const entry = await homeEntry(page, title);
+  await expect(page.getByRole("article").first()).toHaveText(new RegExp(title));
+  await expect(entry.locator("time")).toHaveText(/^\d{4}-\d{2}-\d{2}$/);
+  await expect(entry).toContainText("Intro text https://example.com/");
+  await expect(entry).not.toContainText("const x");
+  await expectFitsPhone(page, "/en");
+  await expectFitsPhone(page, url);
+
+  await page.goto("/en");
+  await page.getByRole("link", { name: title }).click();
+  await expect(page).toHaveURL(url);
   const article = page.getByRole("article");
   await expect(article.getByRole("heading", { level: 1 })).toHaveText(title);
   await expect(article.locator("time")).toHaveText(/^\d{4}-\d{2}-\d{2}$/);
@@ -62,6 +100,7 @@ test("the owner publishes a draft that readers open until it is unpublished", as
   await page.getByRole("button", { name: "Unpublish" }).click();
   await expect(main.getByText("Status: Draft")).toBeVisible();
   await expectNotFound(page, url);
+  await expect(await homeEntry(page, title)).toHaveCount(0);
 });
 
 test("an unknown post URL is not found", async ({ page }) => {
