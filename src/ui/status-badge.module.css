@@ -1,0 +1,18 @@
+.badge {
+  display: inline-block;
+  padding: 0.125rem var(--space-2);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: var(--leading-normal);
+}
+
+.draft {
+  background: var(--color-warning-soft);
+  color: var(--color-warning-text);
+}
+
+.published {
+  background: var(--color-success-soft);
+  color: var(--color-success-text);
+}

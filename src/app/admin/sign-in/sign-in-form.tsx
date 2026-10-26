@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { Button, Field } from "@/ui";
 import { signInAction, type SignInState } from "./actions";
 
 export function SignInForm() {
@@ -10,32 +11,26 @@ export function SignInForm() {
   );
   return (
     <form action={action}>
-      <p>
-        <label>
-          Username{" "}
-          <input
-            name="username"
-            autoComplete="username"
-            defaultValue={state.username}
-            required
-          />
-        </label>
-      </p>
-      <p>
-        <label>
-          Password{" "}
-          <input
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-          />
-        </label>
-      </p>
+      <Field label="Username">
+        <input
+          name="username"
+          autoComplete="username"
+          defaultValue={state.username}
+          required
+        />
+      </Field>
+      <Field label="Password">
+        <input
+          name="password"
+          type="password"
+          autoComplete="current-password"
+          required
+        />
+      </Field>
       {state.error && <p role="alert">{state.error}</p>}
-      <button type="submit" disabled={pending}>
+      <Button type="submit" variant="primary" disabled={pending}>
         Sign in
-      </button>
+      </Button>
     </form>
   );
 }

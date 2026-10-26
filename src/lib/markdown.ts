@@ -8,14 +8,15 @@ import { unified } from "unified";
 
 // remark-rehype drops raw HTML, and the sanitizer removes unsafe URLs and
 // attributes before Shiki adds its own highlighting markup. Languages load on
-// first use; unknown ones render as plain text.
+// first use; unknown ones render as plain text. Code uses one dark theme in
+// both color schemes.
 const processor = unified()
   .use(remarkParse)
   .use(remarkGfm)
   .use(remarkRehype)
   .use(rehypeSanitize)
   .use(rehypeShiki, {
-    theme: "github-light",
+    theme: "github-dark-default",
     langs: [],
     lazy: true,
     defaultLanguage: "text",

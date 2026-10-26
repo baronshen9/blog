@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getConfig } from "@/server/config";
 import { requireOwner } from "@/app/admin/session";
-import { PostEditor } from "@/app/admin/posts/post-editor";
+import { PostEditor } from "@/app/admin/(owner)/posts/post-editor";
 
 export const metadata: Metadata = { title: "New post" };
 
