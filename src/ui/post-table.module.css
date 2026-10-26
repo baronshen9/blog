@@ -72,7 +72,7 @@ td.date {
   text-align: center;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 639px) {
   .table :is(th, td) {
     padding: var(--space-2) var(--space-3);
   }

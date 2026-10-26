@@ -181,12 +181,14 @@ English.
   dark top bar with navigation and sign-out, full-width work area), and the
   sign-in frame (`SignInFrame`: a centered card). `AdminFrame` marks the
   current section, which `app/` derives from the pathname and passes in.
-- **Components in `ui/`:** `PostCard`, `LanguageLabel`, `Prose` (rendered
-  Markdown, including code, quotes, lists, and tables), `Pager`, `Button` and
-  `ButtonLink`, `StatusBadge`, `Field` (labelled inputs and errors), `Notice`
-  (a form's error or success message), `PageHeader`, `PostTable` (the admin
-  post list), and `EditorLayout` (Markdown and preview side by side, stacked
-  below 900 px).
+- **Components in `ui/`:** `PostCard`, `PostMeta` (date and language label),
+  `Card` (a page's main content with a back link and title), `PageTitle`
+  (with an optional line and actions below and beside it), `LanguageLabel`,
+  `Prose` (rendered Markdown, including code, quotes, lists, and tables),
+  `Pager`, `Button` and `ButtonLink`, `StatusBadge`, `Field` (labelled inputs
+  and errors), `Notice` (a form's error or success message), `PostTable` (the
+  admin post list), and `EditorLayout` (Markdown and preview side by side,
+  stacked below 900 px).
 - **Code blocks:** Shiki renders with one dark theme in both color schemes, so
   code looks the same everywhere.
 - **Site name:** read from `SITE_NAME` through `server/config`, default

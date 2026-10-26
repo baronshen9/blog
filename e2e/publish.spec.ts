@@ -103,6 +103,7 @@ test("the owner publishes a draft that readers open until it is unpublished", as
   await expect(await homeEntry(page, title)).toHaveCount(0);
 });
 
-test("an unknown post URL is not found", async ({ page }) => {
+test("an unknown post or page URL is not found", async ({ page }) => {
   await expectNotFound(page, `/zh/posts/missing-${Date.now()}`);
+  await expectNotFound(page, "/en/no/such/page");
 });

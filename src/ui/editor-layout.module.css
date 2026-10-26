@@ -152,7 +152,7 @@
   gap: var(--space-2);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 899px) {
   .panes {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -162,7 +162,7 @@
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 639px) {
   .preview {
     padding: var(--space-4);
   }
