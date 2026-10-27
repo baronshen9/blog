@@ -53,3 +53,11 @@ test("keeps a multi-line image description on one line", async () => {
     '<p><img src="/media/a.png" alt="first second third"></p>',
   );
 });
+
+test("keeps the image when the description has code or tag characters", async () => {
+  const markdown = imageMarkdown("a ` b <i> c", "/media/a.png");
+
+  expect(await renderMarkdown(`${markdown} Use \`code\` here.`)).toBe(
+    '<p><img src="/media/a.png" alt="a &#x60; b <i> c"> Use <code>code</code> here.</p>',
+  );
+});
