@@ -116,4 +116,6 @@ test("an unknown post, page, or language URL is not found", async ({
   await expectNotFound(page, "/zh/tags/%E0");
   await expectNotFound(page, "/en/%E0/x");
   await expectNotFound(page, "/%E0/x");
+  await expectNotFound(page, "/media/%E0.png");
+  await expectNotFound(page, "/admin/posts/%E0");
 });
