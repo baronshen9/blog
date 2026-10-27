@@ -59,8 +59,8 @@ All application code lives under `src/`.
 
 Dependencies point inward toward domain logic. Only `server/` imports Prisma,
 and only through `server/db`. A domain never imports another domain's
-internals, only its `index.ts`. Nothing outside `app/` imports Next.js
-request APIs.
+internals, only its `index.ts`. Nothing outside `app/` and the root hooks
+(`proxy.ts`, `instrumentation.ts`) imports Next.js request APIs.
 
 ## Data model
 
@@ -139,9 +139,10 @@ milestones.
 3. Until M5 decides language filtering, both locales list posts of every
    language, each linking to its own `/<language>/posts/<slug>`.
 
-**Search (M3)** matches the query as a case-insensitive substring (`ILIKE`)
-against title and body of published posts; there is no separate search
-service.
+**Search (M3)** matches the query as a case-insensitive substring (`ILIKE`,
+with its wildcards escaped) against title and body of published posts; there
+is no separate search service. The header of every public page submits `?q=`
+to `/<locale>/search`, which lists matches like the home page.
 
 ## Cross-cutting rules
 
