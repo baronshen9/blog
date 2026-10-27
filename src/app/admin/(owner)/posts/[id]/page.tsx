@@ -28,11 +28,13 @@ export default async function EditPostPage({
         post={{
           status: post.status,
           path: `/${post.language}/posts/${post.slug}`,
+          slugFixed: post.publishedAt !== null,
         }}
         initial={{
           id: post.id,
           language: post.language,
           title: post.title,
+          slug: post.slug,
           bodyMarkdown: post.bodyMarkdown,
         }}
       />

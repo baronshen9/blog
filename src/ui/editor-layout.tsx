@@ -5,8 +5,9 @@ import styles from "./editor-layout.module.css";
 // post's public address, the Markdown and its preview side by side (stacked
 // below 900 px), and the form's messages and actions at the bottom. The
 // layout labels the controls it is given. `preview` is the rendered body,
-// absent until the owner asks for it; the address links to the post when it
-// is live.
+// absent until the owner asks for it. The address is either fixed, linking to
+// the post when it is live, or a prefix followed by the control that edits the
+// slug.
 export function EditorLayout({
   heading,
   title,
@@ -22,7 +23,8 @@ export function EditorLayout({
   title: React.ReactNode;
   status?: React.ReactNode;
   language: React.ReactNode;
-  address?: { path: string; live: boolean };
+  address?:
+    { path: string; live: boolean } | { prefix: string; slug: React.ReactNode };
   markdown: React.ReactNode;
   preview?: React.ReactNode;
   messages?: React.ReactNode;
@@ -48,8 +50,21 @@ export function EditorLayout({
           <span>Language</span>
           {language}
         </label>
-        {address && <code className={styles.path}>{address.path}</code>}
-        {address?.live && <Link href={address.path}>View post</Link>}
+        {address && "path" in address && (
+          <>
+            <code className={styles.path}>{address.path}</code>
+            {address.live && <Link href={address.path}>View post</Link>}
+          </>
+        )}
+        {address && "slug" in address && (
+          <div className={styles.slug}>
+            <code className={styles.prefix}>{address.prefix}</code>
+            <label>
+              <span className={styles.hidden}>Slug</span>
+              {address.slug}
+            </label>
+          </div>
+        )}
       </div>
       <div className={styles.panes}>
         <label className={styles.markdown}>

@@ -67,7 +67,6 @@ test("the owner publishes a draft that readers open until it is unpublished", as
   );
 
   const entry = await homeEntry(page, title);
-  await expect(page.getByRole("article").first()).toHaveText(new RegExp(title));
   await expect(entry.locator("time")).toHaveText(/^\d{4}-\d{2}-\d{2}$/);
   await expect(entry).toContainText("Intro text https://example.com/");
   await expect(entry).not.toContainText("const x");

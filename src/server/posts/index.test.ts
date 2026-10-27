@@ -95,6 +95,85 @@ test("edits a draft's content and keeps its slug and status", async () => {
   });
 });
 
+test("changes a never-published post's slug", async () => {
+  const post = await createDraft({ ...draft, language: "zh", title: "你好" });
+
+  const saved = await updatePost(post.id, {
+    ...draft,
+    slug: " hello-world ",
+    status: "published",
+  });
+
+  expect(saved).toMatchObject({ slug: "hello-world", status: "published" });
+  await expect(getPublishedPost("zh", "hello-world")).resolves.toMatchObject({
+    slug: "hello-world",
+  });
+});
+
+test.each(["", "Hello", "hello--world", "-hello", "hello_world", "你好"])(
+  "refuses the invalid slug %j",
+  async (slug) => {
+    const post = await createDraft(draft);
+
+    await expect(updatePost(post.id, { ...draft, slug })).rejects.toMatchObject(
+      { code: "VALIDATION" },
+    );
+    await expect(getPost(post.id)).resolves.toMatchObject({
+      slug: "first-post",
+    });
+  },
+);
+
+test("refuses a slug taken in the post's language, trashed posts included", async () => {
+  const taken = await createDraft({ ...draft, title: "Taken" });
+  await trashPost(taken.id);
+  const post = await createDraft(draft);
+  const other = await createDraft({ ...draft, language: "zh" });
+
+  await expect(
+    updatePost(post.id, { ...draft, slug: "taken" }),
+  ).rejects.toMatchObject({
+    code: "CONFLICT",
+    message: expect.stringContaining('"taken"'),
+  });
+  await expect(
+    updatePost(other.id, { ...draft, slug: "taken" }),
+  ).resolves.toMatchObject({ slug: "taken" });
+});
+
+test("keeps the slug fixed after the first publication, also when unpublished", async () => {
+  const post = await createDraft(draft);
+  await updatePost(post.id, { ...draft, status: "published" });
+  await updatePost(post.id, { ...draft, status: "draft" });
+
+  await expect(
+    updatePost(post.id, { ...draft, slug: "renamed" }),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
+  await expect(
+    updatePost(post.id, { ...draft, title: "Same slug", slug: "first-post" }),
+  ).resolves.toMatchObject({ title: "Same slug", slug: "first-post" });
+});
+
+test("a slug change racing the first publication never moves a published URL", async () => {
+  const posts = await Promise.all(
+    Array.from({ length: 10 }, () => createDraft(draft)),
+  );
+
+  const published = await Promise.all(
+    posts.map(({ id }, n) => {
+      const move = updatePost(id, { ...draft, slug: `moved-${n}` });
+      return Promise.all([
+        updatePost(id, { ...draft, status: "published" }),
+        move.catch(() => undefined),
+      ]).then(([post]) => post);
+    }),
+  );
+
+  for (const { id, slug } of published) {
+    await expect(getPost(id)).resolves.toMatchObject({ slug });
+  }
+});
+
 test("lists posts outside the trash, most recently changed first", async () => {
   const older = await createDraft({ ...draft, title: "Older" });
   const newer = await createDraft({ ...draft, title: "Newer" });

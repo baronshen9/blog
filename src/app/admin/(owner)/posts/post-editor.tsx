@@ -12,13 +12,14 @@ import { editPostAction, type EditorState, type EditorValues } from "./actions";
 
 const languageNames = { en: "English", zh: "中文" } as const;
 
-// `post` is the saved state of an existing post; a new post has none.
+// `post` is the saved state of an existing post; a new post has none. The
+// slug can be edited until the post's first publication.
 export function PostEditor({
   initial,
   post,
 }: {
   initial: EditorValues;
-  post?: { status: PostStatus; path: string };
+  post?: { status: PostStatus; path: string; slugFixed: boolean };
 }) {
   const [state, action, pending] = useActionState<EditorState, FormData>(
     editPostAction,
@@ -75,7 +76,23 @@ export function PostEditor({
             <option value="zh">{languageNames.zh}</option>
           </select>
         }
-        address={post && { path: post.path, live: status === "published" }}
+        address={
+          post &&
+          (post.slugFixed
+            ? { path: post.path, live: status === "published" }
+            : {
+                prefix: `/${initial.language}/posts/`,
+                slug: (
+                  <input
+                    name="slug"
+                    defaultValue={initial.slug}
+                    autoCapitalize="none"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                ),
+              })
+        }
         markdown={
           <textarea
             name="bodyMarkdown"
