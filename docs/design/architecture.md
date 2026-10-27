@@ -48,9 +48,9 @@ All application code lives under `src/`.
 
 | Module | Owns | May depend on |
 | --- | --- | --- |
-| `app/` | Next.js routes only: `app/[locale]/` public pages, `app/admin/` owner admin, `app/api/v1/` token API, `/media/` uploaded images, `/healthz`. Parses input, checks access, calls services, renders | `server`, `ui`, `contract`, `lib` |
+| `app/` | Next.js routes only: `app/[locale]/` public pages, `app/admin/` owner admin, `app/api/v1/` token API, `/media/` uploaded images, `/healthz`, `/missing` (the proxy's not-found target). Parses input, checks access, calls services, renders | `server`, `ui`, `contract`, `lib` |
 | `server/<domain>/` | Domain logic and persistence, one folder per domain: `posts`, `auth` (owner sessions), `tokens`, `health` (readiness for `/healthz`), `media` (uploaded images), `comments` (reader comments and their rate limit). Each exposes its services through `index.ts` | `server/db`, other domains' `index.ts`, `contract`, `lib` |
-| `proxy.ts`, `instrumentation.ts` | Next.js root hooks: the proxy redirects signed-out admin requests and serves a URL whose first segment is not a language with the default language's not-found page (top-level routes outside the languages, such as `/healthz`, `/api`, and `/media`, are excluded in its matcher); `register()` creates the owner at server start | Same as `app/` |
+| `proxy.ts`, `instrumentation.ts` | Next.js root hooks: the proxy redirects signed-out admin requests and rewrites a public URL whose first segment is not a language, or any URL whose path holds a malformed percent-encoding (admin and `/media` included), to the static `/missing` route, which shows the not-found page in the default language's frame (Next.js matches a rewrite target's pattern against the original path and fails with a 500 on a param it cannot decode, so the target has no dynamic segment; other top-level routes outside the languages, such as `/healthz` and `/api`, are excluded in its matcher); `register()` creates the owner at server start | Same as `app/` |
 | `server/errors` | `DomainError` and its codes, shared by all domains | — |
 | `server/db` | The Prisma client | — |
 | `contract/` | zod schemas and types of the HTTP API | — |
@@ -146,8 +146,12 @@ replaces all of a post's tags.
    which answers the same Markdown for the assistant to put in a post.
 2. The service accepts PNG, JPEG, GIF, and WebP up to 5 MB. It decodes the
    file with sharp to learn its format, rather than trusting its name or
-   declared type, so truncated or corrupt files are refused too. SVG is
-   refused because it can carry scripts. Every refusal names the reason.
+   declared type, so truncated or corrupt files are refused too. Every frame
+   of an animation is decoded, and a GIF's blocks are also checked to be
+   whole, with the trailer after them and every frame's data holding all its
+   pixels, because the decoder shows a frame whose data ends early with the
+   rest blank. SVG is refused
+   because it can carry scripts. Every refusal names the reason.
 3. The service writes the file, then its `Image` row, and returns its path;
    the editor inserts `![<file name>](/media/<id>.<extension>)` at the cursor
    and previews the body.
@@ -156,9 +160,15 @@ replaces all of a post's tags.
    an image in a draft is reachable by its unguessable path, and removing it
    from a post leaves the file.
 
-The Server Action request limit (`next.config.ts`) is 6 MB, room for an
-image at the limit plus the form's encoding. The upload control refuses larger
-images before sending them; the service refuses them for every caller.
+The size limit is defined once, in the `media` service, which refuses larger
+images for every caller. No caller buffers a larger file first: the Server
+Action request limit (`next.config.ts`) is 6 MB, room for an image at the limit
+plus the form's encoding, and the upload control refuses larger images before
+sending them. `POST /api/v1/images` refuses a body larger than a Base64-encoded
+image at the limit plus room for its description, from its declared length or
+as soon as more arrives, before parsing it. The `upload_image` tool reads the
+limit from `GET /api/v1/images/limits` and compares the local file's size with
+it before reading the file; it accepts regular files only.
 
 **Reader comments (M4)**
 

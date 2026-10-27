@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { signIn } from "./owner";
+import { marker, signIn } from "./owner";
 
 test("the owner writes, previews, saves, and reopens a draft", async ({
   page,
 }) => {
-  const title = `Smoke post ${Date.now()}`;
+  const title = `Smoke post ${marker()}`;
   const main = page.getByRole("main");
   await signIn(page);
 

@@ -20,6 +20,43 @@ function image(format: (typeof formats)[number]): Promise<Buffer> {
     .toBuffer();
 }
 
+// A small, complete animation of two frames in the given format.
+function animation(format: "gif" | "webp"): Promise<Buffer> {
+  return sharp({
+    create: {
+      width: 64,
+      height: 128,
+      pageHeight: 64,
+      channels: 3,
+      background: "#000000",
+      noise: { type: "gaussian", mean: 128, sigma: 30 },
+    },
+  })
+    .toFormat(format)
+    .toBuffer();
+}
+
+// The GIF with its last frame's compressed data removed and its block
+// structure kept whole, so only the frame's pixel count shows the damage.
+function withEmptyLastFrame(gif: Buffer): Buffer {
+  const byte = (at: number) => gif[at] ?? 0;
+  const colorTable = (packed: number) =>
+    packed & 0x80 ? 3 * 2 ** ((packed & 0x07) + 1) : 0;
+  let at = 13 + colorTable(byte(10));
+  let lastData = 0;
+  while (byte(at) !== 0x3b) {
+    if (byte(at) === 0x2c) {
+      at += 10 + colorTable(byte(at + 9)) + 1;
+      lastData = at;
+    } else {
+      at += 2;
+    }
+    while (byte(at) !== 0) at += 1 + byte(at);
+    at += 1;
+  }
+  return Buffer.concat([gif.subarray(0, lastData), Buffer.from([0x00, 0x3b])]);
+}
+
 const notAnImage = new DomainError(
   "VALIDATION",
   "This file is not an accepted image; upload a PNG, JPEG, GIF, or WebP file.",
@@ -71,6 +108,37 @@ test("refuses truncated and signature-only images", async () => {
     ]) {
       await expect(uploadImage(part)).rejects.toThrow(notAnImage);
     }
+  }
+});
+
+test("accepts animated GIF and WebP images", async () => {
+  for (const format of ["gif", "webp"] as const) {
+    const stored = await uploadImage(await animation(format));
+    expect(stored.contentType).toBe(`image/${format}`);
+  }
+});
+
+test("refuses animations whose later frame is damaged", async () => {
+  const damaged = [];
+  for (const format of ["gif", "webp"] as const) {
+    // The second frame's data fills the second half of the file.
+    const bytes = await animation(format);
+    const corrupt = Buffer.from(bytes);
+    corrupt.fill(
+      0xff,
+      Math.floor(bytes.byteLength * 0.7),
+      Math.floor(bytes.byteLength * 0.9),
+    );
+    damaged.push(corrupt);
+    if (format === "gif") {
+      damaged.push(
+        bytes.subarray(0, Math.floor(bytes.byteLength * 0.8)),
+        withEmptyLastFrame(bytes),
+      );
+    }
+  }
+  for (const bytes of damaged) {
+    await expect(uploadImage(bytes)).rejects.toThrow(notAnImage);
   }
 });
 

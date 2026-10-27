@@ -34,15 +34,51 @@ export async function handleApiRequest(
   }
 }
 
-// The request's JSON body, checked against a contract schema.
+// The largest body a request may send, and the refusal of a larger one, given
+// the body's size in bytes.
+export type BodyLimit = {
+  bytes: number;
+  refuse: (bodyBytes: number) => Error;
+};
+
+// The request's JSON body, checked against a contract schema. A body over
+// `limit` is refused before it is buffered: from its declared length, or,
+// without one, as soon as more than the limit has arrived.
 export async function readBody<T>(
   request: Request,
   schema: z.ZodType<T>,
+  limit?: BodyLimit,
 ): Promise<T> {
-  const body: unknown = await request.json().catch(() => {
+  const text = limit
+    ? await readLimitedText(request, limit)
+    : await request.text();
+  let body: unknown;
+  try {
+    body = JSON.parse(text);
+  } catch {
     throw new DomainError("VALIDATION", "Send the request body as JSON.");
-  });
+  }
   return schema.parse(body);
+}
+
+async function readLimitedText(
+  request: Request,
+  { bytes, refuse }: BodyLimit,
+): Promise<string> {
+  const declared = Number(request.headers.get("content-length"));
+  if (declared > bytes) {
+    await request.body?.cancel();
+    throw refuse(declared);
+  }
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  // Leaving the loop early cancels the stream.
+  for await (const chunk of request.body ?? []) {
+    received += chunk.byteLength;
+    if (received > bytes) throw refuse(received);
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks).toString("utf8");
 }
 
 // The post id from the route; a malformed one cannot name a post.

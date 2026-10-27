@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { parseEnv } from "node:util";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -9,6 +10,12 @@ import { expect, type Page } from "@playwright/test";
 const env = parseEnv(readFileSync(".env.example", "utf8"));
 export const username = env.OWNER_USERNAME ?? "";
 export const password = env.OWNER_PASSWORD ?? "";
+
+// A marker that names one journey's data. Journeys run in parallel against one
+// stack, so it is random: two journeys can start in the same millisecond.
+export function marker(): string {
+  return randomUUID().replaceAll("-", "").slice(0, 12);
+}
 
 export async function signIn(page: Page): Promise<void> {
   await page.goto("/admin/sign-in");
@@ -27,8 +34,8 @@ export async function createToken(page: Page, name: string): Promise<string> {
 }
 
 // Starts the MCP server the way Claude Code and Codex start it (see the
-// README) with the given token. `call` expects the tool to succeed and returns
-// its text.
+// README) with the given token. `call` expects the tool to succeed and
+// `refusal` expects it to fail; both return its text.
 export async function connectMcp(baseURL: string | undefined, secret: string) {
   const client = new Client({ name: "smoke", version: "1.0.0" });
   await client.connect(
@@ -39,14 +46,37 @@ export async function connectMcp(baseURL: string | undefined, secret: string) {
       stderr: "inherit",
     }),
   );
-  const call = async (name: string, args: Record<string, unknown>) => {
+  const run = async (
+    name: string,
+    args: Record<string, unknown>,
+    isError: boolean,
+  ) => {
     const result = (await client.callTool({
       name,
       arguments: args,
     })) as CallToolResult;
     const [content] = result.content;
-    expect(result.isError ?? false).toBe(false);
+    expect(result.isError ?? false).toBe(isError);
     return content?.type === "text" ? content.text : "";
   };
-  return { call, close: () => client.close() };
+  return {
+    call: (name: string, args: Record<string, unknown>) =>
+      run(name, args, false),
+    refusal: (name: string, args: Record<string, unknown>) =>
+      run(name, args, true),
+    close: () => client.close(),
+  };
+}
+
+// Opens the home page that lists the post titled `title` and returns its card,
+// paging past newer posts that parallel journeys publish meanwhile. When no
+// page lists it, the card is empty.
+export async function homeCard(page: Page, title: string) {
+  const card = page
+    .getByRole("article")
+    .filter({ has: page.getByRole("heading", { name: title }) });
+  for (let n = 1; ; n++) {
+    const response = await page.goto(n === 1 ? "/en" : `/en?page=${n}`);
+    if (response?.status() === 404 || (await card.count()) > 0) return card;
+  }
 }

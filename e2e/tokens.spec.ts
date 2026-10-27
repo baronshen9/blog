@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { signIn } from "./owner";
+import { marker, signIn } from "./owner";
 
 test("the owner creates a token, sees its secret once, and revokes it", async ({
   page,
 }) => {
-  const name = `Smoke token ${Date.now()}`;
+  const name = `Smoke token ${marker()}`;
   const main = page.getByRole("main");
   await signIn(page);
 

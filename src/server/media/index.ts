@@ -5,6 +5,7 @@ import sharp from "sharp";
 import { getConfig } from "@/server/config";
 import { getDb } from "@/server/db";
 import { DomainError } from "@/server/errors";
+import { isCompleteGif } from "./gif";
 
 // The image formats the blog accepts, recognized by decoding the file rather
 // than by its name or declared type. SVG is not accepted: it can carry
@@ -18,8 +19,17 @@ const imageTypes = {
 type ImageType = keyof typeof imageTypes;
 
 // The largest image the blog stores. The Server Action request limit in
-// next.config.ts leaves room above it for the form's encoding.
+// next.config.ts leaves room above it for the form's encoding; the API and the
+// MCP server read it from here to refuse larger files before buffering them.
 export const maxImageBytes = 5 * 1024 * 1024;
+
+// The refusal of an image of `byteSize` bytes, larger than the limit.
+export function imageTooLarge(byteSize: number): DomainError {
+  return new DomainError(
+    "VALIDATION",
+    `This file is ${megabytes(byteSize)}; images can be at most ${megabytes(maxImageBytes)}.`,
+  );
+}
 
 // The content types an upload control may offer to pick from.
 export const acceptedImageTypes = Object.values(imageTypes).map(
@@ -40,12 +50,7 @@ export type Image = {
 // with the reason. The file is written first, so a stored row always has its
 // file.
 export async function uploadImage(bytes: Uint8Array): Promise<Image> {
-  if (bytes.byteLength > maxImageBytes) {
-    throw new DomainError(
-      "VALIDATION",
-      `This file is ${megabytes(bytes.byteLength)}; images can be at most ${megabytes(maxImageBytes)}.`,
-    );
-  }
+  if (bytes.byteLength > maxImageBytes) throw imageTooLarge(bytes.byteLength);
   const type = await decodedType(bytes);
   if (!type) {
     throw new DomainError(
@@ -87,14 +92,16 @@ export async function readImage(
   return { contentType: imageTypes[image.type].contentType, bytes };
 }
 
-// The format of an image in an accepted format that decodes completely, so a
-// truncated or corrupt file is refused rather than stored and shown broken.
+// The format of an image in an accepted format that decodes completely, every
+// frame of an animation included, so a truncated or corrupt file is refused
+// rather than stored and shown broken.
 async function decodedType(bytes: Uint8Array): Promise<ImageType | undefined> {
   try {
-    const image = sharp(bytes);
+    const image = sharp(bytes, { animated: true });
     const { format } = await image.metadata();
     if (!Object.hasOwn(imageTypes, format)) return undefined;
     await image.stats();
+    if (format === "gif" && !isCompleteGif(bytes)) return undefined;
     return format as ImageType;
   } catch {
     return undefined;
