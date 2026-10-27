@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { mkdtemp, truncate, writeFile } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
 import { tmpdir } from "node:os";
@@ -64,13 +63,13 @@ test("an oversized image is refused before it is read or received", async ({
   page,
   baseURL,
 }) => {
-  const marker = randomUUID().slice(0, 8);
+  const mark = marker();
   // A sparse file: 3 GB long without taking the space.
   const file = join(await mkdtemp(join(tmpdir(), "blog-smoke-")), "Huge.png");
   await writeFile(file, "");
   await truncate(file, 3 * 1024 ** 3);
   await signIn(page);
-  const secret = await createToken(page, `Oversized image smoke ${marker}`);
+  const secret = await createToken(page, `Oversized image smoke ${mark}`);
 
   const { refusal, close } = await connectMcp(baseURL, secret);
   try {
