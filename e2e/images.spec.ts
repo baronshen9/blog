@@ -38,12 +38,26 @@ test("the owner uploads an image into a post that readers then see", async ({
     "This image is larger than the limit of 5 MB.",
   );
 
+  // Holds the upload so the journey can try to save while it runs.
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route("**/admin/posts/**", async (route) => {
+    if (route.request().postDataBuffer()?.includes('filename="Figure 1.png"')) {
+      await held;
+    }
+    await route.continue();
+  });
   await body.fill("Before the figure.");
   await file.setInputFiles({
     name: "Figure 1.png",
     mimeType: "image/png",
     buffer: png,
   });
+  await expect(main.getByText("Uploading…")).toBeVisible();
+  for (const name of ["Save draft", "Publish", "Preview", "Move to trash"]) {
+    await expect(page.getByRole("button", { name })).toBeDisabled();
+  }
+  release();
   await expect(body).toHaveValue(
     /^Before the figure\.\n\n!\[Figure 1\]\(\/media\/[0-9a-f-]{36}\.png\)\n$/,
   );

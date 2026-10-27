@@ -8,7 +8,8 @@ export type ImageUploadResult = { markdown: string } | { error: string };
 
 // A button that picks an image file and hands it to `upload` as the form
 // field `image`; the Markdown that shows the stored image goes to
-// `onUploaded`, and a refusal is shown beside the button. The server decides
+// `onUploaded`, and a refusal is shown beside the button. `onUploadingChange`
+// tells the form while an upload runs. The server decides
 // what it accepts; `accept` narrows the file picker, and a file above
 // `maxBytes` is refused here because it would be too large to send.
 export function ImageUpload({
@@ -16,12 +17,14 @@ export function ImageUpload({
   maxBytes,
   upload,
   onUploaded,
+  onUploadingChange,
   disabled = false,
 }: {
   accept: string[];
   maxBytes: number;
   upload: (form: FormData) => Promise<ImageUploadResult>;
   onUploaded: (markdown: string) => void;
+  onUploadingChange?: (uploading: boolean) => void;
   disabled?: boolean;
 }) {
   const input = useRef<HTMLInputElement>(null);
@@ -42,6 +45,7 @@ export function ImageUpload({
       return;
     }
     setState({ status: "uploading" });
+    onUploadingChange?.(true);
     const form = new FormData();
     form.set("image", file);
     try {
@@ -54,6 +58,8 @@ export function ImageUpload({
       onUploaded(result.markdown);
     } catch {
       setState({ status: "error", message: "The upload failed; try again." });
+    } finally {
+      onUploadingChange?.(false);
     }
   }
 
