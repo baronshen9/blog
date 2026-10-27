@@ -1,11 +1,12 @@
 import { randomBytes } from "node:crypto";
+import { languages, postStatuses } from "@/contract";
 import { excerpt, isSlug, slugify } from "@/lib";
 import { getDb } from "@/server/db";
 import { DomainError } from "@/server/errors";
 
-export const languages = ["zh", "en"] as const;
+export { languages };
 export type Language = (typeof languages)[number];
-export type PostStatus = "draft" | "published";
+export type PostStatus = (typeof postStatuses)[number];
 
 export type Post = {
   id: string;
@@ -61,7 +62,8 @@ export async function createDraft({
   language,
   ...content
 }: PostContent & { language: Language }): Promise<Post> {
-  const { title, bodyMarkdown } = validate(content);
+  const title = validateTitle(content.title);
+  const { bodyMarkdown } = content;
   const base = slugify(title) || shortId();
   for (let attempt = 1; attempt <= 10; attempt++) {
     try {
@@ -81,8 +83,8 @@ export async function createDraft({
   throw new DomainError("CONFLICT", "No free slug was found; save again.");
 }
 
-// Changes the content, the status when one is given, and the slug when one is
-// given. The slug changes only while the post has never been published; giving
+// Changes the title, the body, the status, and the slug, each only when given.
+// The slug changes only while the post has never been published; giving
 // a published post its current slug is not a change. The first publication
 // sets publishedAt, which unpublishing and publishing again keep; only a
 // publication writes it, and only while it is empty, so concurrent saves
@@ -91,12 +93,17 @@ export async function createDraft({
 export async function updatePost(
   id: string,
   {
+    title,
+    bodyMarkdown,
     status,
     slug,
-    ...content
-  }: PostContent & { status?: PostStatus; slug?: string },
+  }: Partial<PostContent> & { status?: PostStatus; slug?: string },
 ): Promise<Post> {
-  const data = { ...validate(content), status };
+  const data = {
+    title: title === undefined ? undefined : validateTitle(title),
+    bodyMarkdown,
+    status,
+  };
   const newSlug = slug === undefined ? undefined : validateSlug(slug);
   await getPost(id);
   return getDb().$transaction(async (tx) => {
@@ -196,10 +203,11 @@ export async function getPost(id: string): Promise<Post> {
   return post;
 }
 
-// Every post outside the trash, most recently changed first.
-export async function listPosts(): Promise<PostSummary[]> {
+// Every post outside the trash, most recently changed first; only those with
+// the given status when one is given.
+export async function listPosts(status?: PostStatus): Promise<PostSummary[]> {
   return getDb().post.findMany({
-    where: { deletedAt: null },
+    where: { deletedAt: null, status },
     orderBy: { updatedAt: "desc" },
     select: {
       id: true,
@@ -255,10 +263,10 @@ function notFound(): never {
   throw new DomainError("NOT_FOUND", "This post does not exist.");
 }
 
-function validate({ title, bodyMarkdown }: PostContent): PostContent {
+function validateTitle(title: string): string {
   const trimmed = title.trim();
   if (!trimmed) throw new DomainError("VALIDATION", "Enter a title.");
-  return { title: trimmed, bodyMarkdown };
+  return trimmed;
 }
 
 function validateSlug(slug: string): string {

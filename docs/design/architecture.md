@@ -137,8 +137,10 @@ service.
 
 - **Errors:** services throw `DomainError` with a code (`NOT_FOUND`,
   `VALIDATION`, `CONFLICT`, `UNAUTHORIZED`) and a message safe to show. The API
-  maps codes to HTTP status and `{ "error": { "code", "message" } }`; the admin
-  shows the message; unexpected errors are logged and return a generic message.
+  maps codes to HTTP status (400, 404, 409, 401) and
+  `{ "error": { "code", "message" } }`; the admin shows the message; unexpected
+  errors are logged and return a generic message (in the API, code `INTERNAL`
+  with status 500).
 - **Draft privacy:** public pages read posts only through the `posts`
   published-post queries (`status = published` and `deletedAt` is null).
 - **Rendering and caching:** public and admin pages render on each request;
@@ -223,8 +225,8 @@ test, so each test creates the data it needs and writes no cleanup.
 
 Smoke journeys grow with milestones. M1: sign in, save a draft, confirm its
 URL is not found, publish, read it on the public site, unpublish, confirm it is
-not found again. M2 adds an MCP stdio round trip that creates and publishes a
-draft with a token. Later milestones add one journey per milestone.
+not found again. M2 adds an API round trip with a token created in the admin
+and an MCP stdio round trip that creates and publishes a draft with a token. Later milestones add one journey per milestone.
 
 ## Host toolchain
 
