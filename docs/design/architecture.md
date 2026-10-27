@@ -187,7 +187,7 @@ English.
   `Prose` (rendered Markdown, including code, quotes, lists, and tables),
   `Pager`, `Button` and `ButtonLink`, `StatusBadge`, `Field` (labelled inputs
   and errors), `Notice` (a form's error or success message), `PostTable` (the
-  admin post list), and `EditorLayout` (Markdown and preview side by side,
+  admin post list), `TokenTable` (the admin API token list), and `EditorLayout` (Markdown and preview side by side,
   stacked below 900 px).
 - **Code blocks:** Shiki renders with one dark theme in both color schemes, so
   code looks the same everywhere.

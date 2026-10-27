@@ -4,6 +4,7 @@ import styles from "./admin-frame.module.css";
 const sections = [
   { id: "posts", href: "/admin", label: "Posts" },
   { id: "new-post", href: "/admin/posts/new", label: "New post" },
+  { id: "tokens", href: "/admin/tokens", label: "Tokens" },
 ] as const;
 
 type AdminSection = (typeof sections)[number]["id"];
