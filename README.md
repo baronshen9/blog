@@ -1,10 +1,11 @@
 # Blog
 
 A self-hosted, single-author blog in Chinese and English. The owner writes,
-previews, and publishes Markdown posts in a web admin or from Claude Code and
-Codex through the blog's MCP server, and readers browse and read them in light
-or dark. Tags and search, reader comments, and the bilingual interface arrive
-in later [milestones](docs/product/prd.md#milestones).
+previews, publishes, and tags Markdown posts with uploaded images, in a web
+admin or from Claude Code and Codex through the blog's MCP server. Readers
+browse posts, follow tags, search in Chinese and English, and read in light or
+dark. Reader comments and the bilingual interface arrive in later
+[milestones](docs/product/prd.md#milestones).
 
 - Product requirements: [docs/product/prd.md](docs/product/prd.md)
 - Architecture: [docs/design/architecture.md](docs/design/architecture.md)
@@ -42,8 +43,8 @@ npm run dev
 
 The MCP server in `src/mcp/` runs on your machine and calls the blog's API
 with a token. Its tools list posts by status, read a post, create a draft,
-edit it, publish, unpublish, and delete it to the trash (restore it from the
-admin's Trash). `upload_image` uploads an image file from your machine under
+edit its content, slug, and tags, publish, unpublish, and delete it to the
+trash (restore it from the admin's Trash). `upload_image` uploads an image file from your machine under
 the same rules as the admin and returns the Markdown that shows it, for the
 assistant to put in a post's body.
 
