@@ -1,8 +1,10 @@
 # Blog
 
-A self-hosted, single-author blog in Chinese and English. The owner writes
-Markdown posts in a web admin or from Claude Code and Codex through a local MCP
-server; readers browse, search, and comment.
+A self-hosted, single-author blog in Chinese and English. Today the owner
+writes, previews, and publishes Markdown posts in a web admin, and readers
+browse and read them in light or dark (milestone M1). Managing posts from
+Claude Code and Codex, tags and search, reader comments, and the bilingual
+interface arrive in later [milestones](docs/product/prd.md#milestones).
 
 - Product requirements: [docs/product/prd.md](docs/product/prd.md)
 - Architecture: [docs/design/architecture.md](docs/design/architecture.md)
