@@ -36,7 +36,7 @@ export type TrashedPostSummary = Pick<Post, "id" | "language" | "title"> & {
 export type PostContent = { title: string; bodyMarkdown: string };
 export type PublishedPost = Pick<
   Post,
-  "language" | "title" | "slug" | "bodyMarkdown"
+  "language" | "title" | "slug" | "bodyMarkdown" | "tags"
 > & { publishedAt: Date };
 export type PublishedPostSummary = Omit<PublishedPost, "bodyMarkdown"> & {
   excerpt: string;
@@ -49,6 +49,15 @@ export type PublishedPostPage = {
 
 // Posts per page of the public list.
 export const publishedPageSize = 10;
+
+const publishedPostFields = {
+  language: true,
+  title: true,
+  slug: true,
+  bodyMarkdown: true,
+  tags: true,
+  publishedAt: true,
+} as const;
 
 const postFields = {
   id: true,
@@ -171,13 +180,7 @@ export async function getPublishedPost(
 ): Promise<PublishedPost> {
   const post = await getDb().post.findFirst({
     where: { language, slug, status: "published", deletedAt: null },
-    select: {
-      language: true,
-      title: true,
-      slug: true,
-      bodyMarkdown: true,
-      publishedAt: true,
-    },
+    select: publishedPostFields,
   });
   if (!post?.publishedAt) notFound();
   return { ...post, publishedAt: post.publishedAt };
@@ -204,15 +207,33 @@ export async function searchPublishedPosts(
 ): Promise<PublishedPostPage> {
   const text = query.trim();
   if (!text) throw new DomainError("VALIDATION", "Enter a word to search for.");
-  return publishedPostPage(page, text);
+  return publishedPostPage(page, { search: text });
+}
+
+// A published-post query: one page of the published posts outside the trash
+// that carry the tag, ordered and paged like listPublishedPosts, with the
+// tag's canonical name. The name is compared normalized, so any spelling of a
+// tag finds it. A tag no published post carries does not exist for readers:
+// it is not found, as is any page of it.
+export async function listPublishedPostsByTag(
+  tag: string,
+  page: number,
+): Promise<PublishedPostPage & { tag: string }> {
+  const name = normalizeTag(tag);
+  const result = await publishedPostPage(page, { tag: name });
+  if (result.posts.length === 0) {
+    throw new DomainError("NOT_FOUND", "This tag does not exist.");
+  }
+  return { ...result, tag: name };
 }
 
 // One page of published posts outside the trash, only those containing the
-// search text when one is given. Prisma passes `contains` to ILIKE unescaped,
-// so LIKE's wildcards and escape character are escaped to match literally.
+// search text or carrying the tag when one is given. Prisma passes `contains`
+// to ILIKE unescaped, so LIKE's wildcards and escape character are escaped to
+// match literally.
 async function publishedPostPage(
   page: number,
-  search?: string,
+  { search, tag }: { search?: string; tag?: string } = {},
 ): Promise<PublishedPostPage> {
   const contains = {
     contains: search?.replace(/[\\%_]/g, "\\$&"),
@@ -222,6 +243,7 @@ async function publishedPostPage(
     status: "published",
     deletedAt: null,
     ...(search && { OR: [{ title: contains }, { bodyMarkdown: contains }] }),
+    ...(tag !== undefined && { tags: { has: tag } }),
   } as const;
   const count = await getDb().post.count({ where });
   const pageCount = Math.max(1, Math.ceil(count / publishedPageSize));
@@ -233,13 +255,7 @@ async function publishedPostPage(
     orderBy: [{ publishedAt: "desc" }, { id: "asc" }],
     skip: (page - 1) * publishedPageSize,
     take: publishedPageSize,
-    select: {
-      language: true,
-      title: true,
-      slug: true,
-      bodyMarkdown: true,
-      publishedAt: true,
-    },
+    select: publishedPostFields,
   });
   return {
     posts: posts.flatMap(({ bodyMarkdown, publishedAt, ...post }) =>

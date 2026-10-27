@@ -19,5 +19,6 @@ export { SignInFrame } from "./sign-in-frame";
 export { SiteFrame } from "./site-frame";
 export { StatusBadge } from "./status-badge";
 export { TagField } from "./tag-field";
+export { TagList } from "./tag-list";
 export { TokenTable } from "./token-table";
 export { TrashTable } from "./trash-table";
