@@ -266,7 +266,7 @@ function validateSlug(slug: string): string {
   if (!isSlug(trimmed)) {
     throw new DomainError(
       "VALIDATION",
-      "Use only lowercase Latin letters, digits, and single hyphens between them for the slug, at most 80 characters.",
+      "Use only lowercase Latin letters, digits, and single hyphens between them for the slug.",
     );
   }
   return trimmed;

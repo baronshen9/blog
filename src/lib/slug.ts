@@ -12,8 +12,8 @@ export function slugify(text: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-// A slug as slugify makes it: lowercase Latin letters and digits joined by
-// single hyphens, at most 80 characters.
+// Lowercase Latin letters and digits joined by single hyphens. No length
+// limit: a generated slug may exceed slugify's by a collision suffix.
 export function isSlug(text: string): boolean {
-  return text.length <= maxLength && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(text);
+  return /^[a-z0-9]+(-[a-z0-9]+)*$/.test(text);
 }

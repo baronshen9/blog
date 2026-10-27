@@ -13,8 +13,6 @@ test.each([
 test.each([
   ["hello-world", true],
   ["next-js-16", true],
-  ["a".repeat(80), true],
-  ["a".repeat(81), false],
   ["", false],
   ["Hello", false],
   ["hello--world", false],

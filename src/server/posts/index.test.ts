@@ -110,6 +110,22 @@ test("changes a never-published post's slug", async () => {
   });
 });
 
+test("accepts a generated slug longer than a title's slug, unchanged", async () => {
+  const long = { ...draft, title: "a".repeat(80) };
+  await createDraft(long);
+  const post = await createDraft(long);
+
+  const saved = await updatePost(post.id, {
+    ...long,
+    slug: post.slug,
+    status: "published",
+  });
+  await expect(
+    updatePost(post.id, { ...long, slug: post.slug }),
+  ).resolves.toMatchObject({ slug: `${"a".repeat(80)}-2` });
+  expect(saved.status).toBe("published");
+});
+
 test.each(["", "Hello", "hello--world", "-hello", "hello_world", "你好"])(
   "refuses the invalid slug %j",
   async (slug) => {
