@@ -8,6 +8,7 @@ import { DomainError } from "@/server/errors";
 import {
   createDraft,
   languages,
+  trashPost,
   updatePost,
   type PostStatus,
 } from "@/server/posts";
@@ -18,7 +19,7 @@ const editorFields = z.object({
   language: z.enum(languages),
   title: z.string(),
   bodyMarkdown: z.string(),
-  intent: z.enum(["save", "publish", "unpublish", "preview"]),
+  intent: z.enum(["save", "publish", "unpublish", "preview", "trash"]),
 });
 
 export type EditorValues = Omit<z.infer<typeof editorFields>, "intent">;
@@ -42,7 +43,8 @@ const notices = {
 
 // Previews the body, or saves the post: a new one as a draft, then opened in
 // its editor; an existing one keeps its language, and publishing or
-// unpublishing also changes its status.
+// unpublishing also changes its status. Trashing an existing post discards
+// unsaved changes and returns to the post list.
 export async function editPostAction(
   _previous: EditorState,
   form: FormData,
@@ -55,9 +57,15 @@ export async function editPostAction(
   if (intent === "preview") {
     return { preview: await renderMarkdown(bodyMarkdown) };
   }
-  let created;
+  let next: string;
   try {
-    if (id) {
+    if (!id) {
+      const created = await createDraft({ language, title, bodyMarkdown });
+      next = `/admin/posts/${created.id}`;
+    } else if (intent === "trash") {
+      await trashPost(id);
+      next = "/admin";
+    } else {
       const post = await updatePost(id, {
         title,
         bodyMarkdown,
@@ -67,10 +75,9 @@ export async function editPostAction(
       refresh();
       return { notice: notices[intent](post.status) };
     }
-    created = await createDraft({ language, title, bodyMarkdown });
   } catch (error) {
     if (error instanceof DomainError) return { error: error.message };
     throw error;
   }
-  redirect(`/admin/posts/${created.id}`);
+  redirect(next);
 }

@@ -21,6 +21,9 @@ export type PostSummary = Pick<
   Post,
   "id" | "language" | "title" | "status" | "updatedAt"
 >;
+export type TrashedPostSummary = Pick<Post, "id" | "language" | "title"> & {
+  trashedAt: Date;
+};
 export type PostContent = { title: string; bodyMarkdown: string };
 export type PublishedPost = Pick<
   Post,
@@ -115,9 +118,7 @@ export async function getPublishedPost(
       publishedAt: true,
     },
   });
-  if (!post?.publishedAt) {
-    throw new DomainError("NOT_FOUND", "This post does not exist.");
-  }
+  if (!post?.publishedAt) notFound();
   return { ...post, publishedAt: post.publishedAt };
 }
 
@@ -163,7 +164,7 @@ export async function getPost(id: string): Promise<Post> {
     where: { id, deletedAt: null },
     select: postFields,
   });
-  if (!post) throw new DomainError("NOT_FOUND", "This post does not exist.");
+  if (!post) notFound();
   return post;
 }
 
@@ -180,6 +181,50 @@ export async function listPosts(): Promise<PostSummary[]> {
       updatedAt: true,
     },
   });
+}
+
+// Moves a post outside the trash into it; it keeps its status and slug.
+export async function trashPost(id: string): Promise<void> {
+  const { count } = await getDb().post.updateMany({
+    where: { id, deletedAt: null },
+    data: { deletedAt: new Date() },
+  });
+  if (count === 0) notFound();
+}
+
+// Every trashed post, most recently trashed first.
+export async function listTrashedPosts(): Promise<TrashedPostSummary[]> {
+  const posts = await getDb().post.findMany({
+    where: { deletedAt: { not: null } },
+    orderBy: [{ deletedAt: "desc" }, { id: "asc" }],
+    select: { id: true, language: true, title: true, deletedAt: true },
+  });
+  return posts.flatMap(({ deletedAt, ...post }) =>
+    deletedAt ? [{ ...post, trashedAt: deletedAt }] : [],
+  );
+}
+
+// Takes a post out of the trash as a draft; it keeps its slug and first
+// publication date.
+export async function restorePost(id: string): Promise<void> {
+  const { count } = await getDb().post.updateMany({
+    where: { id, deletedAt: { not: null } },
+    data: { deletedAt: null, status: "draft" },
+  });
+  if (count === 0) notFound();
+}
+
+// Deletes a trashed post for good. Admin-only: the API never exposes it, so
+// a post leaves the database only after passing through the trash.
+export async function deletePostPermanently(id: string): Promise<void> {
+  const { count } = await getDb().post.deleteMany({
+    where: { id, deletedAt: { not: null } },
+  });
+  if (count === 0) notFound();
+}
+
+function notFound(): never {
+  throw new DomainError("NOT_FOUND", "This post does not exist.");
 }
 
 function validate({ title, bodyMarkdown }: PostContent): PostContent {

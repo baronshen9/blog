@@ -36,3 +36,14 @@
 .secondary:is(a, :enabled):hover {
   background: var(--color-surface-muted);
 }
+
+/* An action that cannot be undone. */
+.danger {
+  border-color: var(--color-danger);
+  background: var(--color-surface);
+  color: var(--color-danger);
+}
+
+.danger:is(a, :enabled):hover {
+  background: var(--color-surface-muted);
+}

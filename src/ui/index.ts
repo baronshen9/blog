@@ -18,3 +18,4 @@ export { Prose } from "./prose";
 export { SignInFrame } from "./sign-in-frame";
 export { SiteFrame } from "./site-frame";
 export { StatusBadge } from "./status-badge";
+export { TrashTable } from "./trash-table";

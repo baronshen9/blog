@@ -2,11 +2,15 @@ import { expect, test } from "vitest";
 import { getDb } from "@/server/db";
 import {
   createDraft,
+  deletePostPermanently,
   getPost,
   getPublishedPost,
   listPosts,
   listPublishedPosts,
+  listTrashedPosts,
   publishedPageSize,
+  restorePost,
+  trashPost,
   updatePost,
 } from ".";
 
@@ -95,10 +99,7 @@ test("lists posts outside the trash, most recently changed first", async () => {
   const older = await createDraft({ ...draft, title: "Older" });
   const newer = await createDraft({ ...draft, title: "Newer" });
   const trashed = await createDraft({ ...draft, title: "Trashed" });
-  await getDb().post.update({
-    where: { id: trashed.id },
-    data: { deletedAt: new Date() },
-  });
+  await trashPost(trashed.id);
   await updatePost(older.id, { title: "Older", bodyMarkdown: "edited" });
 
   const titles = (await listPosts()).map((post) => post.title);
@@ -172,10 +173,7 @@ test("saving a published post changes its public content, not its status", async
 test("never shows a trashed post publicly", async () => {
   const post = await createDraft(draft);
   await updatePost(post.id, { ...draft, status: "published" });
-  await getDb().post.update({
-    where: { id: post.id },
-    data: { deletedAt: new Date() },
-  });
+  await trashPost(post.id);
 
   await expect(getPublishedPost("en", post.slug)).rejects.toMatchObject({
     code: "NOT_FOUND",
@@ -241,10 +239,7 @@ test("never lists drafts, unpublished, or trashed posts", async () => {
   const unpublished = await publishOn(1, { ...draft, title: "Unpublished" });
   await updatePost(unpublished.id, { ...draft, status: "draft" });
   const trashed = await publishOn(2, { ...draft, title: "Trashed" });
-  await getDb().post.update({
-    where: { id: trashed.id },
-    data: { deletedAt: new Date() },
-  });
+  await trashPost(trashed.id);
 
   await expect(listPublishedPosts(1)).resolves.toEqual({
     posts: [],
@@ -270,4 +265,67 @@ test("pages through a long list and refuses pages that do not exist", async () =
       code: "NOT_FOUND",
     });
   }
+});
+
+test("lists trashed posts, most recently trashed first", async () => {
+  const first = await createDraft({ ...draft, title: "First" });
+  const second = await createDraft({ ...draft, title: "Second" });
+  await createDraft({ ...draft, title: "Kept" });
+  await trashPost(first.id);
+  await trashPost(second.id);
+
+  const trashed = await listTrashedPosts();
+
+  expect(trashed.map((post) => post.title)).toEqual(["Second", "First"]);
+  expect(trashed[0]).toEqual({
+    id: second.id,
+    language: "en",
+    title: "Second",
+    trashedAt: expect.any(Date),
+  });
+});
+
+test("restores a trashed published post as a draft with its slug and first publication", async () => {
+  const post = await createDraft(draft);
+  const published = await updatePost(post.id, {
+    ...draft,
+    status: "published",
+  });
+  await trashPost(post.id);
+
+  await restorePost(post.id);
+
+  await expect(getPost(post.id)).resolves.toMatchObject({
+    status: "draft",
+    slug: "first-post",
+    publishedAt: published.publishedAt,
+  });
+  await expect(listTrashedPosts()).resolves.toEqual([]);
+  await expect(getPublishedPost("en", post.slug)).rejects.toMatchObject({
+    code: "NOT_FOUND",
+  });
+});
+
+test("deletes only trashed posts permanently", async () => {
+  const live = await createDraft({ ...draft, title: "Live" });
+  const trashed = await createDraft({ ...draft, title: "Trashed" });
+  await trashPost(trashed.id);
+
+  await expect(deletePostPermanently(live.id)).rejects.toMatchObject({
+    code: "NOT_FOUND",
+  });
+  await deletePostPermanently(trashed.id);
+
+  await expect(getDb().post.count()).resolves.toBe(1);
+  await expect(getPost(live.id)).resolves.toMatchObject({ title: "Live" });
+});
+
+test.each([
+  ["trashing a trashed post", trashPost, true],
+  ["restoring a post outside the trash", restorePost, false],
+])("refuses %s", async (_, change, trashed) => {
+  const post = await createDraft(draft);
+  if (trashed) await trashPost(post.id);
+
+  await expect(change(post.id)).rejects.toMatchObject({ code: "NOT_FOUND" });
 });
