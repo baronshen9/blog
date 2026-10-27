@@ -1,0 +1,48 @@
+.comments {
+  margin-top: var(--space-5);
+  padding: var(--space-6) var(--space-7);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.title {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
+
+.note {
+  margin: 0 0 var(--space-5);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+/* A message is prose, not Markdown source like the editor's textarea. */
+.form .message {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+}
+
+/* The outcome of the last submission, above the button. */
+.actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+/* Off screen rather than hidden, so automated senders still find it. */
+.trap {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+@media (max-width: 639px) {
+  .comments {
+    padding: var(--space-5) var(--space-4);
+  }
+}
