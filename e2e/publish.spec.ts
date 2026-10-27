@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { signIn } from "./owner";
+import { homeCard, marker, signIn } from "./owner";
 
 async function expectNotFound(page: Page, url: string) {
   const response = await page.goto(url);
@@ -13,9 +13,7 @@ async function expectNotFound(page: Page, url: string) {
 async function homeEntry(page: Page, title: string) {
   await page.goto("/");
   await expect(page).toHaveURL(/\/en$/);
-  return page.getByRole("article").filter({
-    has: page.getByRole("heading", { name: title }),
-  });
+  return homeCard(page, title);
 }
 
 // A phone-width page shows its content without sideways scrolling.
@@ -36,7 +34,7 @@ async function expectFitsPhone(page: Page, url: string) {
 test("the owner publishes a draft that readers open until it is unpublished", async ({
   page,
 }) => {
-  const stamp = Date.now();
+  const stamp = marker();
   const title = `Published smoke ${stamp}`;
   const url = `/en/posts/published-smoke-${stamp}`;
   const main = page.getByRole("main");
@@ -75,8 +73,11 @@ test("the owner publishes a draft that readers open until it is unpublished", as
   // Without a language the published post's path is still not found.
   await expectNotFound(page, url.replace(/^\/en/, ""));
 
-  await page.goto("/en");
-  await page.getByRole("link", { name: title }).click();
+  await (
+    await homeCard(page, title)
+  )
+    .getByRole("link", { name: title })
+    .click();
   await expect(page).toHaveURL(url);
   const article = page.getByRole("article");
   await expect(article.getByRole("heading", { level: 1 })).toHaveText(title);
@@ -107,7 +108,7 @@ test("the owner publishes a draft that readers open until it is unpublished", as
 test("an unknown post, page, or language URL is not found", async ({
   page,
 }) => {
-  await expectNotFound(page, `/zh/posts/missing-${Date.now()}`);
+  await expectNotFound(page, `/zh/posts/missing-${marker()}`);
   await expectNotFound(page, "/en/no/such/page");
   await expectNotFound(page, "/fr");
   await expectNotFound(page, "/fr/posts/anything");

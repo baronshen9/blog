@@ -1,11 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { createToken, signIn } from "./owner";
+import { createToken, marker, signIn } from "./owner";
 
 test("readers search published posts in Chinese and English from any page", async ({
   page,
   request,
 }) => {
-  const stamp = Date.now();
+  const stamp = marker();
   await signIn(page);
   const headers = {
     authorization: `Bearer ${await createToken(page, `Search smoke ${stamp}`)}`,
