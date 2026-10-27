@@ -89,7 +89,8 @@ export async function createDraft({
 // sets publishedAt, which unpublishing and publishing again keep; only a
 // publication writes it, and only while it is empty, so concurrent saves
 // cannot lose or move it. A save that changes the slug and publishes publishes
-// the new slug.
+// the new slug. The first write applies only outside the trash and locks the
+// post, so a post trashed or deleted meanwhile is not found rather than changed.
 export async function updatePost(
   id: string,
   {
@@ -103,10 +104,16 @@ export async function updatePost(
     title: title === undefined ? undefined : validateTitle(title),
     bodyMarkdown,
     status,
+    // Set explicitly so a slug-only save still writes, and therefore locks.
+    updatedAt: new Date(),
   };
   const newSlug = slug === undefined ? undefined : validateSlug(slug);
-  await getPost(id);
   return getDb().$transaction(async (tx) => {
+    const { count } = await tx.post.updateMany({
+      where: { id, deletedAt: null },
+      data,
+    });
+    if (count === 0) notFound();
     if (newSlug !== undefined) {
       const { count } = await tx.post
         .updateMany({
@@ -133,7 +140,7 @@ export async function updatePost(
         data: { publishedAt: new Date() },
       });
     }
-    return tx.post.update({ where: { id }, data, select: postFields });
+    return tx.post.findUniqueOrThrow({ where: { id }, select: postFields });
   });
 }
 
@@ -164,7 +171,39 @@ export async function getPublishedPost(
 export async function listPublishedPosts(
   page: number,
 ): Promise<PublishedPostPage> {
-  const where = { status: "published", deletedAt: null } as const;
+  return publishedPostPage(page);
+}
+
+// A published-post query: one page of the published posts outside the trash
+// whose title or body contains the query, ignoring case, ordered and paged
+// like listPublishedPosts. A substring match finds Chinese words, which have
+// no spaces between them, as reliably as English ones. A query of only
+// spaces is refused, because every post contains the empty string.
+export async function searchPublishedPosts(
+  query: string,
+  page: number,
+): Promise<PublishedPostPage> {
+  const text = query.trim();
+  if (!text) throw new DomainError("VALIDATION", "Enter a word to search for.");
+  return publishedPostPage(page, text);
+}
+
+// One page of published posts outside the trash, only those containing the
+// search text when one is given. Prisma passes `contains` to ILIKE unescaped,
+// so LIKE's wildcards and escape character are escaped to match literally.
+async function publishedPostPage(
+  page: number,
+  search?: string,
+): Promise<PublishedPostPage> {
+  const contains = {
+    contains: search?.replace(/[\\%_]/g, "\\$&"),
+    mode: "insensitive",
+  } as const;
+  const where = {
+    status: "published",
+    deletedAt: null,
+    ...(search && { OR: [{ title: contains }, { bodyMarkdown: contains }] }),
+  } as const;
   const count = await getDb().post.count({ where });
   const pageCount = Math.max(1, Math.ceil(count / publishedPageSize));
   if (!Number.isSafeInteger(page) || page < 1 || page > pageCount) {
