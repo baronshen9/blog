@@ -14,3 +14,11 @@ export async function signIn(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/admin$/);
 }
+
+// Creates an API token in the admin and returns its secret.
+export async function createToken(page: Page, name: string): Promise<string> {
+  await page.goto("/admin/tokens");
+  await page.getByLabel("Token name").fill(name);
+  await page.getByRole("button", { name: "Create token" }).click();
+  return page.getByLabel("Secret").inputValue();
+}
