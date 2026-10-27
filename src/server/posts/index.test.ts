@@ -271,8 +271,11 @@ test("lists trashed posts, most recently trashed first", async () => {
   const first = await createDraft({ ...draft, title: "First" });
   const second = await createDraft({ ...draft, title: "Second" });
   await createDraft({ ...draft, title: "Kept" });
-  await trashPost(first.id);
-  await trashPost(second.id);
+  for (const [day, { id }] of [first, second].entries()) {
+    await trashPost(id);
+    const deletedAt = new Date(Date.UTC(2026, 0, day + 1));
+    await getDb().post.update({ where: { id }, data: { deletedAt } });
+  }
 
   const trashed = await listTrashedPosts();
 
@@ -281,7 +284,7 @@ test("lists trashed posts, most recently trashed first", async () => {
     id: second.id,
     language: "en",
     title: "Second",
-    trashedAt: expect.any(Date),
+    trashedAt: new Date(Date.UTC(2026, 0, 2)),
   });
 });
 
