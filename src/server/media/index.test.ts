@@ -1,71 +1,98 @@
+import sharp from "sharp";
 import { expect, test } from "vitest";
 import { DomainError } from "@/server/errors";
 import { maxImageBytes, readImage, uploadImage } from ".";
 
-const png = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-  "base64",
+const formats = ["png", "jpeg", "gif", "webp"] as const;
+
+// A small, complete image in the given format.
+function image(format: (typeof formats)[number]): Promise<Buffer> {
+  return sharp({
+    create: {
+      width: 64,
+      height: 64,
+      channels: 3,
+      background: "#000000",
+      noise: { type: "gaussian", mean: 128, sigma: 30 },
+    },
+  })
+    .toFormat(format)
+    .toBuffer();
+}
+
+const notAnImage = new DomainError(
+  "VALIDATION",
+  "This file is not an accepted image; upload a PNG, JPEG, GIF, or WebP file.",
 );
-const ascii = (text: string) => Buffer.from(text, "latin1");
 
 test("stores an image and serves it at its path", async () => {
-  const image = await uploadImage(png);
+  const png = await image("png");
+  const stored = await uploadImage(png);
 
-  expect(image).toMatchObject({ contentType: "image/png", byteSize: 70 });
-  expect(image.path).toBe(`/media/${image.id}.png`);
-  const stored = await readImage(image.path.split("/").pop() ?? "");
-  expect(stored.contentType).toBe("image/png");
-  expect(Buffer.from(stored.bytes)).toEqual(png);
+  expect(stored).toMatchObject({
+    contentType: "image/png",
+    byteSize: png.byteLength,
+  });
+  expect(stored.path).toBe(`/media/${stored.id}.png`);
+  const read = await readImage(stored.path.split("/").pop() ?? "");
+  expect(read.contentType).toBe("image/png");
+  expect(Buffer.from(read.bytes)).toEqual(png);
 });
 
-test("recognizes each accepted format by its content", async () => {
-  const files = [
-    [Buffer.from([0xff, 0xd8, 0xff, 0xe0]), "image/jpeg", "jpg"],
-    [ascii("GIF89a..."), "image/gif", "gif"],
-    [ascii("RIFF\0\0\0\0WEBPVP8 "), "image/webp", "webp"],
-  ] as const;
-  for (const [bytes, contentType, extension] of files) {
-    const image = await uploadImage(bytes);
-    expect(image.contentType).toBe(contentType);
-    expect(image.path).toMatch(new RegExp(`\\.${extension}$`));
+test("accepts each format by its content", async () => {
+  const extensions = { png: "png", jpeg: "jpg", gif: "gif", webp: "webp" };
+  for (const format of formats) {
+    const stored = await uploadImage(await image(format));
+    expect(stored.contentType).toBe(`image/${format}`);
+    expect(stored.path).toMatch(new RegExp(`\\.${extensions[format]}$`));
   }
 });
 
 test("refuses files that are not accepted images, naming the formats", async () => {
+  const svg = "<svg xmlns='http://www.w3.org/2000/svg' width='2' height='2'/>";
   for (const bytes of [
-    ascii("<svg xmlns='http://www.w3.org/2000/svg'/>"),
-    ascii("plain text"),
+    Buffer.from(svg),
+    Buffer.from("plain text"),
     Buffer.alloc(0),
+    await sharp(await image("png"))
+      .tiff()
+      .toBuffer(),
   ]) {
-    await expect(uploadImage(bytes)).rejects.toThrow(
-      new DomainError(
-        "VALIDATION",
-        "This file is not an accepted image; upload a PNG, JPEG, GIF, or WebP file.",
-      ),
-    );
+    await expect(uploadImage(bytes)).rejects.toThrow(notAnImage);
   }
 });
 
-test("refuses images above the size limit, naming both sizes", async () => {
-  const large = Buffer.alloc(maxImageBytes + 512 * 1024);
-  png.copy(large);
+test("refuses truncated and signature-only images", async () => {
+  for (const format of formats) {
+    const bytes = await image(format);
+    for (const part of [
+      bytes.subarray(0, Math.floor(bytes.byteLength * 0.8)),
+      bytes.subarray(0, 8),
+    ]) {
+      await expect(uploadImage(part)).rejects.toThrow(notAnImage);
+    }
+  }
+});
 
-  await expect(uploadImage(large)).rejects.toThrow(
-    "This image is 5.5 MB; images can be at most 5 MB.",
-  );
+test("refuses files above the size limit, naming both sizes", async () => {
   await expect(
-    uploadImage(large.subarray(0, maxImageBytes)),
-  ).resolves.toMatchObject({ byteSize: maxImageBytes });
+    uploadImage(Buffer.alloc(maxImageBytes + 512 * 1024)),
+  ).rejects.toThrow(
+    new DomainError(
+      "VALIDATION",
+      "This file is 5.5 MB; images can be at most 5 MB.",
+    ),
+  );
 });
 
 test("finds no image under an unknown or mismatched name", async () => {
-  const image = await uploadImage(png);
+  const stored = await uploadImage(await image("png"));
 
   for (const name of [
-    `${image.id}.gif`,
+    `${stored.id}.gif`,
     `${crypto.randomUUID()}.png`,
     "../secret.png",
-    image.id,
+    stored.id,
   ]) {
     await expect(readImage(name)).rejects.toMatchObject({ code: "NOT_FOUND" });
   }

@@ -1,13 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import sharp from "sharp";
 import { getConfig } from "@/server/config";
 import { getDb } from "@/server/db";
 import { DomainError } from "@/server/errors";
 
-// The image formats the blog accepts, each recognized by the signature at the
-// start of the file rather than by its name or declared type. SVG is not
-// accepted: it can carry scripts.
+// The image formats the blog accepts, recognized by decoding the file rather
+// than by its name or declared type. SVG is not accepted: it can carry
+// scripts.
 const imageTypes = {
   png: { contentType: "image/png", extension: "png", label: "PNG" },
   jpeg: { contentType: "image/jpeg", extension: "jpg", label: "JPEG" },
@@ -34,21 +35,22 @@ export type Image = {
 };
 
 // Stores an uploaded image: the file goes to MEDIA_DIR, named after its id
-// and format, and its metadata to the database. Files that are not an
-// accepted image, or are larger than the limit, are refused with the reason.
-// The file is written first, so a stored row always has its file.
+// and format, and its metadata to the database. Files larger than the limit,
+// and files that are not a complete image in an accepted format, are refused
+// with the reason. The file is written first, so a stored row always has its
+// file.
 export async function uploadImage(bytes: Uint8Array): Promise<Image> {
-  const type = detectType(bytes);
+  if (bytes.byteLength > maxImageBytes) {
+    throw new DomainError(
+      "VALIDATION",
+      `This file is ${megabytes(bytes.byteLength)}; images can be at most ${megabytes(maxImageBytes)}.`,
+    );
+  }
+  const type = await decodedType(bytes);
   if (!type) {
     throw new DomainError(
       "VALIDATION",
       `This file is not an accepted image; upload a ${typeList()} file.`,
-    );
-  }
-  if (bytes.byteLength > maxImageBytes) {
-    throw new DomainError(
-      "VALIDATION",
-      `This image is ${megabytes(bytes.byteLength)}; images can be at most ${megabytes(maxImageBytes)}.`,
     );
   }
   const id = randomUUID();
@@ -85,15 +87,18 @@ export async function readImage(
   return { contentType: imageTypes[image.type].contentType, bytes };
 }
 
-function detectType(bytes: Uint8Array): ImageType | undefined {
-  const starts = (signature: number[], offset = 0) =>
-    signature.every((byte, i) => bytes[offset + i] === byte);
-  const ascii = (text: string) => [...text].map((c) => c.charCodeAt(0));
-  if (starts([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return "png";
-  if (starts([0xff, 0xd8, 0xff])) return "jpeg";
-  if (starts(ascii("GIF87a")) || starts(ascii("GIF89a"))) return "gif";
-  if (starts(ascii("RIFF")) && starts(ascii("WEBP"), 8)) return "webp";
-  return undefined;
+// The format of an image in an accepted format that decodes completely, so a
+// truncated or corrupt file is refused rather than stored and shown broken.
+async function decodedType(bytes: Uint8Array): Promise<ImageType | undefined> {
+  try {
+    const image = sharp(bytes);
+    const { format } = await image.metadata();
+    if (!Object.hasOwn(imageTypes, format)) return undefined;
+    await image.stats();
+    return format as ImageType;
+  } catch {
+    return undefined;
+  }
 }
 
 function fileName(id: string, type: ImageType): string {

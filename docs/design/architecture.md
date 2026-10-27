@@ -34,6 +34,7 @@ in [`docs/decisions/`](../decisions/).
 | Framework | Next.js 16 (App Router), React 19 | Server Components render public and admin pages; Server Actions handle admin writes; route handlers serve the API ([0001](../decisions/0001-nextjs-monolith-with-postgres.md)) |
 | Persistence | Postgres 18 with Prisma ORM and Prisma Migrate | Durable relational store with constraints; one engine from tests to a future server |
 | Markdown | unified (remark-gfm, remark-rehype) with Shiki highlighting, server-side only | One renderer for admin preview and public pages; raw HTML in Markdown is not rendered |
+| Images | sharp (also Next.js's image library) | Decodes uploads to verify their format and completeness before they are stored |
 | Validation | zod | API request and response schemas shared by route handlers and the MCP server |
 | MCP | `@modelcontextprotocol/sdk`, stdio transport, run on the host with `node` ([0003](../decisions/0003-mcp-as-host-stdio-client.md)) | Local Claude Code and Codex support stdio servers |
 | Testing | Vitest; Testcontainers for Postgres; Playwright for smoke journeys | Integration tests run against the real engine |
@@ -143,9 +144,10 @@ A later milestone adds `Comment` with its rate-limit records (owned by
 1. In the post editor, the owner picks a file; a Server Action passes its bytes
    to the `media` upload service, the one place that decides what is accepted.
    Uploads through MCP reach the same service through the API.
-2. The service accepts PNG, JPEG, GIF, and WebP, recognized by the file's
-   signature rather than its name or declared type (SVG is refused because it
-   can carry scripts), up to 5 MB. Other files are refused with the reason.
+2. The service accepts PNG, JPEG, GIF, and WebP up to 5 MB. It decodes the
+   file with sharp to learn its format, rather than trusting its name or
+   declared type, so truncated or corrupt files are refused too. SVG is
+   refused because it can carry scripts. Every refusal names the reason.
 3. The service writes the file, then its `Image` row, and returns its path;
    the editor inserts `![<file name>](/media/<id>.<extension>)` at the cursor
    and previews the body.
