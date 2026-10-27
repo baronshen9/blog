@@ -12,6 +12,9 @@
   --color-surface-muted: #f5f7fa;
   --color-border: #e1e5eb;
   --color-border-strong: #c9d0da;
+  /* Form control outlines: at least 3:1 against the surfaces controls sit on
+     (WCAG 2.2 non-text contrast). Card borders stay on --color-border. */
+  --color-border-control: #7f8896;
   --color-text: #1b1f24;
   --color-text-muted: #59636e;
   --color-accent: #1d5bd8;
@@ -90,6 +93,7 @@
     --color-surface-muted: #1d2129;
     --color-border: #2a2f39;
     --color-border-strong: #3a414d;
+    --color-border-control: #646d7a;
     --color-text: #e6e8eb;
     --color-text-muted: #9aa3ae;
     --color-accent: #7aaaff;
