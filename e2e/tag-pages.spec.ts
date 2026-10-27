@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { createToken, signIn } from "./owner";
 
@@ -5,7 +6,9 @@ test("readers browse published posts by their Chinese and English tags", async (
   page,
   request,
 }) => {
-  const stamp = Date.now();
+  // Random rather than Date.now(): journeys run in parallel, and another
+  // journey's search for its own timestamp must not find these posts.
+  const stamp = randomUUID().slice(0, 8);
   const english = `smoke-${stamp}`;
   const chinese = `标签${stamp}`;
   const hidden = `hidden-${stamp}`;
