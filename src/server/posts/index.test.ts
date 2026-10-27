@@ -95,6 +95,21 @@ test("edits a draft's content and keeps its slug and status", async () => {
   });
 });
 
+test("changes only the fields given", async () => {
+  const post = await createDraft(draft);
+
+  await updatePost(post.id, { bodyMarkdown: "Body" });
+  await updatePost(post.id, { title: " Renamed " });
+  await updatePost(post.id, { status: "published" });
+
+  await expect(getPost(post.id)).resolves.toMatchObject({
+    title: "Renamed",
+    bodyMarkdown: "Body",
+    slug: "first-post",
+    status: "published",
+  });
+});
+
 test("changes a never-published post's slug", async () => {
   const post = await createDraft({ ...draft, language: "zh", title: "你好" });
 
@@ -207,6 +222,21 @@ test("lists posts outside the trash, most recently changed first", async () => {
     updatePost(trashed.id, { title: "x", bodyMarkdown: "" }),
   ).rejects.toMatchObject({ code: "NOT_FOUND" });
   expect(newer.status).toBe("draft");
+});
+
+test("lists only the posts with the given status", async () => {
+  const published = await createDraft({ ...draft, title: "Published" });
+  await updatePost(published.id, { status: "published" });
+  const trashed = await createDraft({ ...draft, title: "Trashed" });
+  await updatePost(trashed.id, { status: "published" });
+  await trashPost(trashed.id);
+  await createDraft({ ...draft, title: "Draft" });
+
+  const titles = async (status: "draft" | "published") =>
+    (await listPosts(status)).map((post) => post.title);
+
+  expect(await titles("published")).toEqual(["Published"]);
+  expect(await titles("draft")).toEqual(["Draft"]);
 });
 
 test("publishing makes a post public at its language and slug", async () => {
