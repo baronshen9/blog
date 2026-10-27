@@ -49,7 +49,7 @@ All application code lives under `src/`.
 | Module | Owns | May depend on |
 | --- | --- | --- |
 | `app/` | Next.js routes only: `app/[locale]/` public pages, `app/admin/` owner admin, `app/api/v1/` token API, `/media/` uploaded images, `/healthz`. Parses input, checks access, calls services, renders | `server`, `ui`, `contract`, `lib` |
-| `server/<domain>/` | Domain logic and persistence, one folder per domain: `posts`, `auth` (owner sessions), `tokens`, `health` (readiness for `/healthz`), `media` (uploaded images); later `comments`. Each exposes its services through `index.ts` | `server/db`, other domains' `index.ts`, `contract`, `lib` |
+| `server/<domain>/` | Domain logic and persistence, one folder per domain: `posts`, `auth` (owner sessions), `tokens`, `health` (readiness for `/healthz`), `media` (uploaded images), `comments` (reader comments and their rate limit). Each exposes its services through `index.ts` | `server/db`, other domains' `index.ts`, `contract`, `lib` |
 | `proxy.ts`, `instrumentation.ts` | Next.js root hooks: the proxy redirects signed-out admin requests and serves a URL whose first segment is not a language with the default language's not-found page (top-level routes outside the languages, such as `/healthz`, `/api`, and `/media`, are excluded in its matcher); `register()` creates the owner at server start | Same as `app/` |
 | `server/errors` | `DomainError` and its codes, shared by all domains | — |
 | `server/db` | The Prisma client | — |
@@ -77,6 +77,8 @@ merge.
 | `ApiToken` | id, name, tokenHash, createdAt, lastUsedAt, revokedAt | Secret shown once at creation; only its SHA-256 hash is stored. Revoked tokens are kept for the list but refused |
 | `Image` | id, type (`png` \| `jpeg` \| `gif` \| `webp`), byteSize, createdAt | Owned by `media`. The file lives in `MEDIA_DIR` (the Compose `media` volume) as `<id>.<extension>` and is served at `/media/<id>.<extension>`; see image upload below |
 | `Post` | id, translationGroupId, language (`zh` \| `en`), title, slug, bodyMarkdown, tags (text array, default empty), status (`draft` \| `published`), publishedAt, createdAt, updatedAt, deletedAt | Unique `(language, slug)` and `(translationGroupId, language)`; title must be non-empty. A new post starts a new translation group |
+| `Comment` | id, postId, nickname, message, status (`pending` \| `approved`, default `pending`), createdAt | Owned by `comments`. Nickname and message are trimmed and non-empty, at most 40 and 2,000 characters. Deleted with its post |
+| `CommentRateLimit` | visitorHash, windowStart, count | Owned by `comments`. Key `(visitorHash, windowStart)`; see reader comments below |
 
 Post lifecycle:
 
@@ -98,10 +100,6 @@ that normalize alike are one tag, kept once per post. A normalized name must be
 letters (any script) and digits joined by single hyphens, at most 40
 characters; blank names are dropped, other names are refused. Saving tags
 replaces all of a post's tags.
-
-A later milestone adds `Comment` with its rate-limit records (owned by
-`comments`; Postgres, no separate cache). Their fields are
-[deferred](#deferred-decisions) to that milestone.
 
 ## Key flows
 
@@ -165,6 +163,31 @@ A later milestone adds `Comment` with its rate-limit records (owned by
 The Server Action request limit (`next.config.ts`) is 6 MB, room for an
 image at the limit plus the form's encoding. The upload control refuses larger
 images before sending them; the service refuses them for every caller.
+
+**Reader comments (M4)**
+
+1. A published post's page shows a comment form with a nickname, a message,
+   and a hidden field (`website`) that people never see. Drafts and trashed
+   posts have no page, and the `comments` service accepts comments only on a
+   post the `posts` published-post queries return.
+2. The Server Action passes the fields and the visitor's address to the
+   `comments` submit service. The address is the last `X-Forwarded-For`
+   entry: the nearest proxy's view of the client, or the connection's address
+   that Next.js fills in when the request has no such header. A deployment
+   must put a proxy in front that appends or overwrites this header, because
+   without one a client can set it.
+3. The service refuses, storing nothing: a filled hidden field, an empty or
+   overlong nickname or message, a post that is not published, and a visitor
+   over the rate limit of 5 comments per fixed 10-minute window. Refusals
+   name the reason, and the form keeps the reader's input.
+4. The rate limit counts in Postgres, not a separate cache: one upsert per
+   submission that passes the other checks into `CommentRateLimit`, keyed by
+   an HMAC-SHA-256 of the address under a random key held only in the server process, so the
+   address is never stored or logged and a stored hash cannot be reversed by
+   trying every address. Ended windows are deleted on each submission; a
+   restart starts every count afresh.
+5. The comment is stored as `pending`, and the reader is told it awaits
+   moderation. No public page shows a pending comment.
 
 **Search (M3)** matches the query as a case-insensitive substring (`ILIKE`,
 with its wildcards escaped) against title and body of published posts; there
@@ -235,11 +258,12 @@ English.
   `Pager`, `Button` and `ButtonLink`, `StatusBadge`, `Field` (labelled inputs
   and errors), `TagField` (a post's tags as removable chips with an input that
   adds them), `TagList` (a published post's tags as links to their tag
-  pages), `Notice` (a form's error or success message), `ImageUpload` (a
-  button that uploads an image file and reports a refusal beside it),
-  `PostTable` (the admin post list), `TrashTable` (the admin trash),
-  `TokenTable` (the admin API token list), and `EditorLayout` (Markdown and
-  preview side by side, stacked below 900 px).
+  pages), `Notice` (a form's error or success message), `CommentForm` (a
+  reader's comment on a post, with its hidden spam field and outcome),
+  `ImageUpload` (a button that uploads an image file and reports a refusal
+  beside it), `PostTable` (the admin post list), `TrashTable` (the admin
+  trash), `TokenTable` (the admin API token list), and `EditorLayout`
+  (Markdown and preview side by side, stacked below 900 px).
 - **Code blocks:** Shiki renders with one dark theme in both color schemes, so
   code looks the same everywhere.
 - **Site name:** read from `SITE_NAME` through `server/config`, default
@@ -303,7 +327,6 @@ account comes from `.env`. Development uses `npm run dev` against the Compose
 | Decision | Needed by | Current default |
 | --- | --- | --- |
 | Search index | M3 | `ILIKE` without an index; add `pg_trgm` only if measured latency requires it |
-| `Comment` and rate-limit record fields | M4 | None; stored in Postgres, owned by `comments` |
 | Notifying the owner of pending comments outside the admin | M4 | No notification (PRD open question) |
 | Interface translation library and language switch | M5 | English interface text; candidate next-intl ([0004](../decisions/0004-language-prefixed-urls-and-translation-groups.md)) |
 | Whether a language-filtered list shows posts that exist only in the other language | M5 | None (PRD open question) |
