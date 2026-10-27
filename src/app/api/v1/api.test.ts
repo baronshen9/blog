@@ -1,6 +1,13 @@
+import sharp from "sharp";
 import { expect, test } from "vitest";
-import { errorResponse, postListResponse, postResponse } from "@/contract";
+import {
+  errorResponse,
+  imageResponse,
+  postListResponse,
+  postResponse,
+} from "@/contract";
 import { ensureOwner, signIn } from "@/server/auth";
+import { readImage } from "@/server/media";
 import {
   createDraft,
   getPost,
@@ -13,6 +20,7 @@ import { createToken, listTokens, revokeToken } from "@/server/tokens";
 import { sessionCookie } from "@/app/admin/session-cookie";
 import * as postsRoute from "./posts/route";
 import * as postRoute from "./posts/[id]/route";
+import * as imagesRoute from "./images/route";
 
 type Options = { headers?: Record<string, string>; body?: unknown };
 
@@ -39,6 +47,8 @@ const posts = {
   create: (options: Options) =>
     postsRoute.POST(request("POST", "/posts", options)),
 };
+const uploadImage = (options: Options) =>
+  imagesRoute.POST(request("POST", "/images", options));
 const post = Object.fromEntries(
   (["GET", "PATCH", "DELETE"] as const).map((method) => [
     method,
@@ -319,4 +329,58 @@ test("explains invalid edits, unknown posts, and slug conflicts", async () => {
   );
   expect(conflict).toContain('"taken"');
   await expect(getPost(id)).resolves.toMatchObject({ slug: "mine" });
+});
+
+test("uploads an image with a token and answers its Markdown", async () => {
+  const headers = await bearer();
+  const png = await sharp({
+    create: { width: 2, height: 2, channels: 3, background: "#336699" },
+  })
+    .png()
+    .toBuffer();
+
+  const response = await uploadImage({
+    headers,
+    body: { alt: "A [blue] square", data: png.toString("base64") },
+  });
+
+  expect(response.status).toBe(201);
+  const { path, markdown } = imageResponse.parse(await response.json());
+  expect(path).toMatch(/^\/media\/[0-9a-f-]{36}\.png$/);
+  expect(markdown).toBe(`![A \\[blue\\] square](${path})`);
+  const stored = await readImage(path.slice("/media/".length));
+  expect(Buffer.from(stored.bytes)).toEqual(png);
+});
+
+test.each([
+  [
+    "a file that is not an image",
+    { alt: "x", data: Buffer.from("not an image").toString("base64") },
+    "This file is not an accepted image; upload a PNG, JPEG, GIF, or WebP file.",
+  ],
+  [
+    "a file above the size limit",
+    { alt: "x", data: Buffer.alloc(5.5 * 1024 * 1024).toString("base64") },
+    "This file is 5.5 MB; images can be at most 5 MB.",
+  ],
+  ["data that is not Base64", { alt: "x", data: "not base64!" }, "data"],
+  ["no description", { data: "" }, "alt"],
+])("refuses uploading %s", async (_, body, message) => {
+  const headers = await bearer();
+
+  const error = await expectError(
+    await uploadImage({ headers, body }),
+    400,
+    "VALIDATION",
+  );
+
+  expect(error).toContain(message);
+});
+
+test("refuses an image upload without a token", async () => {
+  await expectError(
+    await uploadImage({ body: { alt: "x", data: "" } }),
+    401,
+    "UNAUTHORIZED",
+  );
 });
