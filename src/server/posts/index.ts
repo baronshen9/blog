@@ -1,6 +1,13 @@
 import { randomBytes } from "node:crypto";
 import { languages, postStatuses } from "@/contract";
-import { excerpt, isSlug, slugify } from "@/lib";
+import {
+  excerpt,
+  isSlug,
+  isTag,
+  maxTagLength,
+  normalizeTag,
+  slugify,
+} from "@/lib";
 import { getDb } from "@/server/db";
 import { DomainError } from "@/server/errors";
 
@@ -14,6 +21,7 @@ export type Post = {
   title: string;
   slug: string;
   bodyMarkdown: string;
+  tags: string[];
   status: PostStatus;
   publishedAt: Date | null;
   updatedAt: Date;
@@ -48,21 +56,24 @@ const postFields = {
   title: true,
   slug: true,
   bodyMarkdown: true,
+  tags: true,
   status: true,
   publishedAt: true,
   updatedAt: true,
 } as const;
 
-// A new post is a draft in its own translation group. Its slug comes from the
-// title, or is a short random id when the title has no Latin characters; when
-// a concurrent save takes the same slug first, the next free one is used.
+// A new post is a draft in its own translation group, with the given tags or
+// none. Its slug comes from the title, or is a short random id when the title
+// has no Latin characters; when a concurrent save takes the same slug first,
+// the next free one is used.
 // Every round of colliding saves lets at least one through, so the bound is
 // reached only by an implausible number of simultaneous saves.
 export async function createDraft({
   language,
   ...content
-}: PostContent & { language: Language }): Promise<Post> {
+}: PostContent & { language: Language; tags?: string[] }): Promise<Post> {
   const title = validateTitle(content.title);
+  const tags = validateTags(content.tags ?? []);
   const { bodyMarkdown } = content;
   const base = slugify(title) || shortId();
   for (let attempt = 1; attempt <= 10; attempt++) {
@@ -72,6 +83,7 @@ export async function createDraft({
           language,
           title,
           bodyMarkdown,
+          tags,
           slug: await availableSlug(language, base),
         },
         select: postFields,
@@ -83,7 +95,8 @@ export async function createDraft({
   throw new DomainError("CONFLICT", "No free slug was found; save again.");
 }
 
-// Changes the title, the body, the status, and the slug, each only when given.
+// Changes the title, the body, the tags, the status, and the slug, each only
+// when given; given tags replace the post's tags.
 // The slug changes only while the post has never been published; giving
 // a published post its current slug is not a change. The first publication
 // sets publishedAt, which unpublishing and publishing again keep; only a
@@ -96,13 +109,19 @@ export async function updatePost(
   {
     title,
     bodyMarkdown,
+    tags,
     status,
     slug,
-  }: Partial<PostContent> & { status?: PostStatus; slug?: string },
+  }: Partial<PostContent> & {
+    tags?: string[];
+    status?: PostStatus;
+    slug?: string;
+  },
 ): Promise<Post> {
   const data = {
     title: title === undefined ? undefined : validateTitle(title),
     bodyMarkdown,
+    tags: tags === undefined ? undefined : validateTags(tags),
     status,
     // Set explicitly so a slug-only save still writes, and therefore locks.
     updatedAt: new Date(),
@@ -317,6 +336,22 @@ function validateSlug(slug: string): string {
     );
   }
   return trimmed;
+}
+
+// The admin and the API both pass tags through here, so they accept and reject
+// the same names. Names are normalized (lib/tag.ts); spellings that normalize
+// alike are one tag, kept once in the order first given.
+function validateTags(tags: string[]): string[] {
+  const names = new Set(tags.map(normalizeTag).filter(Boolean));
+  for (const name of names) {
+    if (!isTag(name)) {
+      throw new DomainError(
+        "VALIDATION",
+        `The tag "${name}" is not valid: use letters, digits, and single hyphens, at most ${maxTagLength} characters.`,
+      );
+    }
+  }
+  return [...names];
 }
 
 // Slugs are unique per language, trashed posts included; a taken slug gets

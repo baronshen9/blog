@@ -7,19 +7,31 @@ import {
   type MouseEvent,
 } from "react";
 import type { PostStatus } from "@/server/posts";
-import { Button, EditorLayout, Notice, Prose, StatusBadge } from "@/ui";
+import {
+  Button,
+  EditorLayout,
+  Notice,
+  Prose,
+  StatusBadge,
+  TagField,
+} from "@/ui";
 import { editPostAction, type EditorState, type EditorValues } from "./actions";
 
 const languageNames = { en: "English", zh: "中文" } as const;
 
-// `post` is the saved state of an existing post; a new post has none. The
-// slug can be edited until the post's first publication.
+// `post` is the saved state of an existing post, as of `savedAt`; a new post
+// has none. The slug can be edited until the post's first publication.
 export function PostEditor({
   initial,
   post,
 }: {
   initial: EditorValues;
-  post?: { status: PostStatus; path: string; slugFixed: boolean };
+  post?: {
+    status: PostStatus;
+    path: string;
+    slugFixed: boolean;
+    savedAt: string;
+  };
 }) {
   const [state, action, pending] = useActionState<EditorState, FormData>(
     editPostAction,
@@ -92,6 +104,17 @@ export function PostEditor({
                   />
                 ),
               })
+        }
+        tags={
+          <TagField
+            // Each save replaces the field with the tags as the server stored
+            // them, normalized, so the field is read-only until it ends.
+            key={post?.savedAt}
+            label="Tags"
+            name="tags"
+            defaultValue={initial.tags}
+            disabled={pending}
+          />
         }
         markdown={
           <textarea

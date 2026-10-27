@@ -29,6 +29,7 @@ export default async function EditPostPage({
           status: post.status,
           path: `/${post.language}/posts/${post.slug}`,
           slugFixed: post.publishedAt !== null,
+          savedAt: post.updatedAt.toISOString(),
         }}
         initial={{
           id: post.id,
@@ -36,6 +37,7 @@ export default async function EditPostPage({
           title: post.title,
           slug: post.slug,
           bodyMarkdown: post.bodyMarkdown,
+          tags: post.tags,
         }}
       />
     </main>

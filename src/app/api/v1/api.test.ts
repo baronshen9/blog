@@ -239,6 +239,48 @@ test.each([
   expect(await listPosts()).toEqual([]);
 });
 
+test("carries a post's tags, normalized by the posts service", async () => {
+  const headers = await bearer();
+
+  const created = postResponse.parse(
+    await (
+      await posts.create({
+        headers,
+        body: {
+          language: "en",
+          title: "Tagged",
+          bodyMarkdown: "",
+          tags: ["Next JS", "next_js", "数据库"],
+        },
+      })
+    ).json(),
+  );
+  expect(created.tags).toEqual(["next-js", "数据库"]);
+
+  const edited = await post.PATCH(created.id, {
+    headers,
+    body: { tags: ["Postgres"] },
+  });
+  expect(postResponse.parse(await edited.json()).tags).toEqual(["postgres"]);
+  const read = await post.GET(created.id, { headers });
+  expect(postResponse.parse(await read.json()).tags).toEqual(["postgres"]);
+
+  const message = await expectError(
+    await post.PATCH(created.id, { headers, body: { tags: ["c++"] } }),
+    400,
+    "VALIDATION",
+  );
+  expect(message).toContain('"c++"');
+  await expectError(
+    await post.PATCH(created.id, { headers, body: { tags: "postgres" } }),
+    400,
+    "VALIDATION",
+  );
+  await expect(getPost(created.id)).resolves.toMatchObject({
+    tags: ["postgres"],
+  });
+});
+
 test("explains invalid edits, unknown posts, and slug conflicts", async () => {
   const headers = await bearer();
   const content = { language: "en", bodyMarkdown: "" } as const;
