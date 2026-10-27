@@ -4,11 +4,15 @@ import { connection } from "next/server";
 import { cache } from "react";
 import { z } from "zod";
 import { renderMarkdown } from "@/lib";
-import { messageMaxLength, nicknameMaxLength } from "@/server/comments";
+import {
+  listPublicComments,
+  messageMaxLength,
+  nicknameMaxLength,
+} from "@/server/comments";
 import { DomainError } from "@/server/errors";
 import { getPublishedPost, languages } from "@/server/posts";
 import { tagHref } from "@/app/[locale]/tag-href";
-import { Card, CommentForm, PostMeta, Prose, TagList } from "@/ui";
+import { Card, CommentForm, CommentList, PostMeta, Prose, TagList } from "@/ui";
 import { submitCommentAction } from "./actions";
 
 type Params = Promise<{ locale: string; slug: string }>;
@@ -19,11 +23,14 @@ const loadPost = cache(async (locale: string, slug: string) => {
   await connection();
   const language = z.enum(languages).safeParse(locale);
   if (!language.success) notFound();
-  return getPublishedPost(language.data, slug).catch((error: unknown) => {
-    if (error instanceof DomainError && error.code === "NOT_FOUND") notFound();
-    throw error;
-  });
+  return getPublishedPost(language.data, slug).catch(notFoundIfMissing);
 });
+
+// A post that is not, or no longer, published renders the not-found page.
+function notFoundIfMissing(error: unknown): never {
+  if (error instanceof DomainError && error.code === "NOT_FOUND") notFound();
+  throw error;
+}
 
 export async function generateMetadata({
   params,
@@ -37,7 +44,10 @@ export async function generateMetadata({
 export default async function PostPage({ params }: { params: Params }) {
   const { locale, slug } = await params;
   const post = await loadPost(locale, slug);
-  const body = await renderMarkdown(post.bodyMarkdown);
+  const [body, comments] = await Promise.all([
+    renderMarkdown(post.bodyMarkdown),
+    listPublicComments(post.language, post.slug).catch(notFoundIfMissing),
+  ]);
   return (
     <main>
       <Card
@@ -53,6 +63,7 @@ export default async function PostPage({ params }: { params: Params }) {
       >
         <Prose html={body} />
       </Card>
+      <CommentList comments={comments} />
       <CommentForm
         submit={submitCommentAction.bind(null, {
           language: post.language,

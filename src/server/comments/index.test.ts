@@ -1,7 +1,22 @@
 import { afterEach, expect, test, vi } from "vitest";
 import { getDb } from "@/server/db";
-import { createDraft, trashPost, updatePost } from "@/server/posts";
-import { commentRateLimit, submitComment, type CommentSubmission } from ".";
+import {
+  createDraft,
+  restorePost,
+  trashPost,
+  updatePost,
+} from "@/server/posts";
+import {
+  approveComment,
+  commentRateLimit,
+  countPendingComments,
+  listCommentsForModeration,
+  listPublicComments,
+  rejectComment,
+  removeComment,
+  submitComment,
+  type CommentSubmission,
+} from ".";
 
 async function publishedPost(title = "Hello") {
   const draft = await createDraft({ language: "en", title, bodyMarkdown: "" });
@@ -152,4 +167,114 @@ test("keeps only a keyed hash of the visitor, and only for the current window", 
   expect(rows[0]?.visitorHash).toMatch(/^[0-9a-f]{64}$/);
   const comments = await getDb().comment.findMany();
   expect(JSON.stringify(comments)).not.toMatch(/203\.0\.113/);
+});
+
+// Submits a comment from its own visitor, so no test meets the rate limit,
+// and returns its id.
+async function comment(
+  post: { language: "en" | "zh"; slug: string },
+  message: string,
+): Promise<string> {
+  await submitComment(submission(post, { message, visitor: message }));
+  const { id } = await getDb().comment.findFirstOrThrow({ where: { message } });
+  return id;
+}
+
+test("shows approved comments under their post, oldest first, and nothing pending", async () => {
+  const post = await publishedPost();
+  const later = await comment(post, "Later");
+  const earlier = await comment(post, "Earlier");
+  await comment(post, "Pending");
+  for (const [id, minute] of [
+    [later, 5],
+    [earlier, 0],
+  ] as const) {
+    await getDb().comment.update({
+      where: { id },
+      data: { createdAt: new Date(Date.UTC(2026, 9, 27, 12, minute)) },
+    });
+    await approveComment(id);
+  }
+
+  expect(await listPublicComments("en", post.slug)).toEqual([
+    expect.objectContaining({
+      id: earlier,
+      nickname: "Reader",
+      message: "Earlier",
+    }),
+    expect.objectContaining({ id: later, message: "Later" }),
+  ]);
+});
+
+test("lists the pending queue with its post and counts it", async () => {
+  const post = await publishedPost("Queue");
+  const pending = await comment(post, "Waiting");
+  await approveComment(await comment(post, "Approved"));
+
+  expect(await countPendingComments()).toBe(1);
+  expect(await listCommentsForModeration("pending")).toEqual([
+    {
+      id: pending,
+      nickname: "Reader",
+      message: "Waiting",
+      createdAt: expect.any(Date),
+      post: { id: post.id, title: "Queue" },
+    },
+  ]);
+  expect(
+    (await listCommentsForModeration("approved")).map((c) => c.message),
+  ).toEqual(["Approved"]);
+});
+
+test("rejecting deletes a pending comment, and removing an approved one", async () => {
+  const post = await publishedPost();
+  const rejected = await comment(post, "Rejected");
+  const removed = await comment(post, "Removed");
+  await approveComment(removed);
+
+  await rejectComment(rejected);
+  await removeComment(removed);
+
+  expect(await getDb().comment.count()).toBe(0);
+  expect(await listPublicComments("en", post.slug)).toEqual([]);
+});
+
+test("acts only on a comment in the status the owner saw", async () => {
+  const post = await publishedPost();
+  const approved = await comment(post, "Approved");
+  await approveComment(approved);
+  const pending = await comment(post, "Pending");
+
+  for (const act of [
+    () => approveComment(approved),
+    () => rejectComment(approved),
+    () => removeComment(pending),
+    () => approveComment("00000000-0000-4000-8000-000000000000"),
+  ]) {
+    await expect(act()).rejects.toMatchObject({ code: "NOT_FOUND" });
+  }
+  expect(await getDb().comment.count()).toBe(2);
+});
+
+test("keeps comments of unpublished and trashed posts out of public view", async () => {
+  const post = await publishedPost();
+  await approveComment(await comment(post, "Approved"));
+  await comment(post, "Pending");
+
+  await updatePost(post.id, { status: "draft" });
+  await expect(listPublicComments("en", post.slug)).rejects.toMatchObject({
+    code: "NOT_FOUND",
+  });
+
+  await updatePost(post.id, { status: "published" });
+  await trashPost(post.id);
+  await expect(listPublicComments("en", post.slug)).rejects.toMatchObject({
+    code: "NOT_FOUND",
+  });
+  expect(await countPendingComments()).toBe(0);
+  expect(await listCommentsForModeration("pending")).toEqual([]);
+  expect(await listCommentsForModeration("approved")).toEqual([]);
+
+  await restorePost(post.id);
+  expect(await countPendingComments()).toBe(1);
 });

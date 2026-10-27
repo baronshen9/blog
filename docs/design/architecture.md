@@ -77,7 +77,7 @@ merge.
 | `ApiToken` | id, name, tokenHash, createdAt, lastUsedAt, revokedAt | Secret shown once at creation; only its SHA-256 hash is stored. Revoked tokens are kept for the list but refused |
 | `Image` | id, type (`png` \| `jpeg` \| `gif` \| `webp`), byteSize, createdAt | Owned by `media`. The file lives in `MEDIA_DIR` (the Compose `media` volume) as `<id>.<extension>` and is served at `/media/<id>.<extension>`; see image upload below |
 | `Post` | id, translationGroupId, language (`zh` \| `en`), title, slug, bodyMarkdown, tags (text array, default empty), status (`draft` \| `published`), publishedAt, createdAt, updatedAt, deletedAt | Unique `(language, slug)` and `(translationGroupId, language)`; title must be non-empty. A new post starts a new translation group |
-| `Comment` | id, postId, nickname, message, status (`pending` \| `approved`, default `pending`), createdAt | Owned by `comments`. Nickname and message are trimmed and non-empty, at most 40 and 2,000 characters. Deleted with its post |
+| `Comment` | id, postId, nickname, message, status (`pending` \| `approved`, default `pending`), createdAt | Owned by `comments`. Nickname and message are trimmed and non-empty, at most 40 and 2,000 characters. Rejecting or removing a comment deletes it. Deleted with its post |
 | `CommentRateLimit` | visitorHash, windowStart, count | Owned by `comments`. Key `(visitorHash, windowStart)`; see reader comments below |
 
 Post lifecycle:
@@ -184,6 +184,24 @@ images before sending them; the service refuses them for every caller.
    restart starts every count afresh.
 5. The comment is stored as `pending`, and the reader is told it awaits
    moderation. No public page shows a pending comment.
+6. The owner moderates at `/admin/comments`: the pending queue, oldest first,
+   with each comment's post, nickname, message, and time, and below it the
+   approved comments, newest first. Approving sets `approved`; rejecting a
+   pending comment and removing an approved one delete it, so neither is ever
+   shown again. Each action names the status the owner saw, so a stale page
+   cannot reject a comment approved meanwhile. The admin navigation shows the
+   number of pending comments; it is computed by the admin layout, which does
+   not render again on navigation between admin pages, so it updates on a
+   page load and after each moderation action. Comments of a trashed post
+   leave the queue and the count with their post and return when it is
+   restored.
+7. A post's page lists its approved comments, oldest first, below the post,
+   through a `comments` query that finds the post with the `posts`
+   published-post queries, so comments of drafts and trashed posts are never
+   public.
+8. The owner is not notified of new comments outside the admin: no email,
+   push, or other channel. The pending count in the admin navigation is the
+   only signal.
 
 **Search (M3)** matches the query as a case-insensitive substring (`ILIKE`,
 with its wildcards escaped) against title and body of published posts; there
@@ -256,6 +274,8 @@ English.
   adds them), `TagList` (a published post's tags as links to their tag
   pages), `Notice` (a form's error or success message), `CommentForm` (a
   reader's comment on a post, with its hidden spam field and outcome),
+  `CommentList` (a post's approved comments), `CommentTable` (the admin
+  comment queue and approved comments, with actions on each),
   `ImageUpload` (a button that uploads an image file and reports a refusal
   beside it), `PostTable` (the admin post list), `TrashTable` (the admin
   trash), `TokenTable` (the admin API token list), and `EditorLayout`
@@ -323,7 +343,6 @@ account comes from `.env`. Development uses `npm run dev` against the Compose
 | Decision | Needed by | Current default |
 | --- | --- | --- |
 | Search index | M3 | `ILIKE` without an index; add `pg_trgm` only if measured latency requires it |
-| Notifying the owner of pending comments outside the admin | M4 | No notification (PRD open question) |
 | Interface translation library and language switch | M5 | English interface text; candidate next-intl ([0004](../decisions/0004-language-prefixed-urls-and-translation-groups.md)) |
 | Whether a language-filtered list shows posts that exist only in the other language | M5 | None (PRD open question) |
 | Language of a first visit | M5 | `/` redirects to `SITE_DEFAULT_LANGUAGE` (PRD open question) |

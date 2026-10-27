@@ -6,6 +6,8 @@ export { AdminFrame } from "./admin-frame";
 export { Button, ButtonLink } from "./button";
 export { Card } from "./card";
 export { CommentForm, type CommentFormState } from "./comment-form";
+export { CommentList } from "./comment-list";
+export { CommentTable } from "./comment-table";
 export { EditorLayout } from "./editor-layout";
 export { Field } from "./field";
 export { ImageUpload, type ImageUploadResult } from "./image-upload";

@@ -1,4 +1,4 @@
-/* The admin's post tables, PostTable and TrashTable: a table that scrolls
+/* The admin's tables, PostTable, TrashTable, and CommentTable: a table that scrolls
    inside its own box rather than widening the page. */
 .box {
   overflow-x: auto;
@@ -58,6 +58,25 @@
 
 .table td:not(:first-child) {
   white-space: nowrap;
+}
+
+/* Reader text: wraps instead of staying on one line. */
+.table td.wrap {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* A comment's message as written, line breaks kept, in a readable width. */
+.table td.message {
+  min-width: 16rem;
+  max-width: 36rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Rows taller than one line keep their cells aligned at the top. */
+.table .top td {
+  vertical-align: top;
 }
 
 td.date {
