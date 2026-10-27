@@ -4,10 +4,12 @@ import { connection } from "next/server";
 import { cache } from "react";
 import { z } from "zod";
 import { renderMarkdown } from "@/lib";
+import { messageMaxLength, nicknameMaxLength } from "@/server/comments";
 import { DomainError } from "@/server/errors";
 import { getPublishedPost, languages } from "@/server/posts";
 import { tagHref } from "@/app/[locale]/tag-href";
-import { Card, PostMeta, Prose, TagList } from "@/ui";
+import { Card, CommentForm, PostMeta, Prose, TagList } from "@/ui";
+import { submitCommentAction } from "./actions";
 
 type Params = Promise<{ locale: string; slug: string }>;
 
@@ -51,6 +53,14 @@ export default async function PostPage({ params }: { params: Params }) {
       >
         <Prose html={body} />
       </Card>
+      <CommentForm
+        submit={submitCommentAction.bind(null, {
+          language: post.language,
+          slug: post.slug,
+        })}
+        nicknameMaxLength={nicknameMaxLength}
+        messageMaxLength={messageMaxLength}
+      />
     </main>
   );
 }

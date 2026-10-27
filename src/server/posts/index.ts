@@ -186,6 +186,20 @@ export async function getPublishedPost(
   return { ...post, publishedAt: post.publishedAt };
 }
 
+// A published-post query for what readers attach to a post, such as a
+// comment: the id of a published post outside the trash, by its URL.
+export async function getPublishedPostId(
+  language: Language,
+  slug: string,
+): Promise<string> {
+  const post = await getDb().post.findFirst({
+    where: { language, slug, status: "published", deletedAt: null },
+    select: { id: true },
+  });
+  if (!post) notFound();
+  return post.id;
+}
+
 // A published-post query: one page of published posts outside the trash,
 // newest publication first, in every language until M5 decides which posts a
 // language's list shows. Pages count from 1; the first page exists even when

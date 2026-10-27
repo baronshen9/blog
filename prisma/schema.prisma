@@ -47,6 +47,7 @@ model Post {
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
   deletedAt          DateTime?
+  comments           Comment[]
 
   @@unique([language, slug])
   @@unique([translationGroupId, language])
@@ -73,4 +74,29 @@ model Image {
   type      ImageType
   byteSize  Int
   createdAt DateTime  @default(now())
+}
+
+enum CommentStatus {
+  pending
+  approved
+}
+
+model Comment {
+  id        String        @id @default(uuid()) @db.Uuid
+  postId    String        @db.Uuid
+  post      Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  nickname  String
+  message   String
+  status    CommentStatus @default(pending)
+  createdAt DateTime      @default(now())
+}
+
+// Comments a visitor submitted in one fixed window, keyed by a keyed hash of
+// the visitor's address; the address itself is never stored.
+model CommentRateLimit {
+  visitorHash String
+  windowStart DateTime
+  count       Int
+
+  @@id([visitorHash, windowStart])
 }
