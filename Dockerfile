@@ -15,6 +15,8 @@ COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/prisma.config.ts ./
+# A new `media` volume takes this directory's owner, so the server can write.
+RUN mkdir media && chown node:node media
 USER node
 EXPOSE 3000
 CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy && exec node server.js"]

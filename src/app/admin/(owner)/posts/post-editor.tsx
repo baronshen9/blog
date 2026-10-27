@@ -3,6 +3,7 @@
 import {
   startTransition,
   useActionState,
+  useRef,
   type FormEvent,
   type MouseEvent,
 } from "react";
@@ -10,22 +11,31 @@ import type { PostStatus } from "@/server/posts";
 import {
   Button,
   EditorLayout,
+  ImageUpload,
   Notice,
   Prose,
   StatusBadge,
   TagField,
 } from "@/ui";
-import { editPostAction, type EditorState, type EditorValues } from "./actions";
+import {
+  editPostAction,
+  uploadImageAction,
+  type EditorState,
+  type EditorValues,
+} from "./actions";
 
 const languageNames = { en: "English", zh: "中文" } as const;
 
 // `post` is the saved state of an existing post, as of `savedAt`; a new post
 // has none. The slug can be edited until the post's first publication.
+// `images` are the media service's upload rules for the upload control.
 export function PostEditor({
   initial,
   post,
+  images,
 }: {
   initial: EditorValues;
+  images: { accept: string[]; maxBytes: number };
   post?: {
     status: PostStatus;
     path: string;
@@ -37,6 +47,8 @@ export function PostEditor({
     editPostAction,
     {},
   );
+  const body = useRef<HTMLTextAreaElement>(null);
+  const previewButton = useRef<HTMLButtonElement>(null);
 
   // Submitted here rather than through the form's action prop, so React does
   // not reset the fields afterwards: the chosen language and anything typed
@@ -54,6 +66,24 @@ export function PostEditor({
     const form = new FormData(event.currentTarget.form ?? undefined);
     form.set("intent", "trash");
     startTransition(() => action(form));
+  }
+
+  // Puts an uploaded image's Markdown at the cursor as a paragraph of its
+  // own, and previews the body so the owner sees the image.
+  function insertImage(markdown: string) {
+    const textarea = body.current;
+    if (!textarea) return;
+    const { selectionStart: start, selectionEnd: end, value } = textarea;
+    // Enough line breaks to leave a blank line between the image and the text
+    // around it, given the breaks already there.
+    const gap = (breaks: string) => "\n".repeat(Math.max(0, 2 - breaks.length));
+    const head = value.slice(0, start);
+    const tail = value.slice(end);
+    const before = head ? gap(/\n*$/.exec(head)?.[0] ?? "") : "";
+    const after = tail ? gap(/^\n*/.exec(tail)?.[0] ?? "") : "\n";
+    textarea.setRangeText(`${before}${markdown}${after}`, start, end, "end");
+    textarea.focus();
+    textarea.form?.requestSubmit(previewButton.current);
   }
 
   // Saving a new post opens it in a new editor, which would drop anything
@@ -116,8 +146,18 @@ export function PostEditor({
             disabled={pending}
           />
         }
+        tools={
+          <ImageUpload
+            accept={images.accept}
+            maxBytes={images.maxBytes}
+            upload={uploadImageAction}
+            onUploaded={insertImage}
+            disabled={pending}
+          />
+        }
         markdown={
           <textarea
+            ref={body}
             name="bodyMarkdown"
             defaultValue={initial.bodyMarkdown}
             placeholder="Write the post in Markdown."
@@ -144,6 +184,7 @@ export function PostEditor({
               </Button>
             )}
             <Button
+              ref={previewButton}
               type="submit"
               name="intent"
               value="preview"

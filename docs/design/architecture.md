@@ -47,9 +47,9 @@ All application code lives under `src/`.
 
 | Module | Owns | May depend on |
 | --- | --- | --- |
-| `app/` | Next.js routes only: `app/[locale]/` public pages, `app/admin/` owner admin, `app/api/v1/` token API, `/healthz`. Parses input, checks access, calls services, renders | `server`, `ui`, `contract`, `lib` |
-| `server/<domain>/` | Domain logic and persistence, one folder per domain: `posts`, `auth` (owner sessions), `tokens`, `health` (readiness for `/healthz`); later `media`, `comments`. Each exposes its services through `index.ts` | `server/db`, other domains' `index.ts`, `contract`, `lib` |
-| `proxy.ts`, `instrumentation.ts` | Next.js root hooks: the proxy redirects signed-out admin requests and serves a URL whose first segment is not a language with the default language's not-found page (top-level routes outside the languages, such as `/healthz` and `/api`, are excluded in its matcher); `register()` creates the owner at server start | Same as `app/` |
+| `app/` | Next.js routes only: `app/[locale]/` public pages, `app/admin/` owner admin, `app/api/v1/` token API, `/media/` uploaded images, `/healthz`. Parses input, checks access, calls services, renders | `server`, `ui`, `contract`, `lib` |
+| `server/<domain>/` | Domain logic and persistence, one folder per domain: `posts`, `auth` (owner sessions), `tokens`, `health` (readiness for `/healthz`), `media` (uploaded images); later `comments`. Each exposes its services through `index.ts` | `server/db`, other domains' `index.ts`, `contract`, `lib` |
+| `proxy.ts`, `instrumentation.ts` | Next.js root hooks: the proxy redirects signed-out admin requests and serves a URL whose first segment is not a language with the default language's not-found page (top-level routes outside the languages, such as `/healthz`, `/api`, and `/media`, are excluded in its matcher); `register()` creates the owner at server start | Same as `app/` |
 | `server/errors` | `DomainError` and its codes, shared by all domains | — |
 | `server/db` | The Prisma client | — |
 | `contract/` | zod schemas and types of the HTTP API | — |
@@ -74,6 +74,7 @@ merge.
 | `Owner` | id, username, passwordHash (argon2id), createdAt | Exactly one row, created at startup from `OWNER_USERNAME` and `OWNER_PASSWORD` when absent; never overwritten from the environment |
 | `Session` | id, tokenHash, ownerId, createdAt, expiresAt | Cookie (path `/admin`) holds a random token; only its SHA-256 hash is stored. Sessions last 30 days; signing out deletes the row |
 | `ApiToken` | id, name, tokenHash, createdAt, lastUsedAt, revokedAt | Secret shown once at creation; only its SHA-256 hash is stored. Revoked tokens are kept for the list but refused |
+| `Image` | id, type (`png` \| `jpeg` \| `gif` \| `webp`), byteSize, createdAt | Owned by `media`. The file lives in `MEDIA_DIR` (the Compose `media` volume) as `<id>.<extension>` and is served at `/media/<id>.<extension>`; see image upload below |
 | `Post` | id, translationGroupId, language (`zh` \| `en`), title, slug, bodyMarkdown, tags (text array, default empty), status (`draft` \| `published`), publishedAt, createdAt, updatedAt, deletedAt | Unique `(language, slug)` and `(translationGroupId, language)`; title must be non-empty. A new post starts a new translation group |
 
 Post lifecycle:
@@ -97,11 +98,9 @@ letters (any script) and digits joined by single hyphens, at most 40
 characters; blank names are dropped, other names are refused. Saving tags
 replaces all of a post's tags.
 
-Later milestones add `Image`
-(owned by `media`; files on the `media` volume, metadata in Postgres), and
-`Comment` with its rate-limit records (owned by `comments`; Postgres, no
-separate cache). Their fields are [deferred](#deferred-decisions) to those
-milestones.
+A later milestone adds `Comment` with its rate-limit records (owned by
+`comments`; Postgres, no separate cache). Their fields are
+[deferred](#deferred-decisions) to that milestone.
 
 ## Key flows
 
@@ -138,6 +137,26 @@ milestones.
    `lib`, ten per page (`?page=`); a page past the last is not found.
 3. Until M5 decides language filtering, both locales list posts of every
    language, each linking to its own `/<language>/posts/<slug>`.
+
+**Owner uploads an image (M3)**
+
+1. In the post editor, the owner picks a file; a Server Action passes its bytes
+   to the `media` upload service, the one place that decides what is accepted.
+   Uploads through MCP reach the same service through the API.
+2. The service accepts PNG, JPEG, GIF, and WebP, recognized by the file's
+   signature rather than its name or declared type (SVG is refused because it
+   can carry scripts), up to 5 MB. Other files are refused with the reason.
+3. The service writes the file, then its `Image` row, and returns its path;
+   the editor inserts `![<file name>](/media/<id>.<extension>)` at the cursor
+   and previews the body.
+4. `/media/<file>` serves stored images to anyone, with a long-lived cache
+   header, since a path's content never changes. Images are not tied to posts:
+   an image in a draft is reachable by its unguessable path, and removing it
+   from a post leaves the file.
+
+The Server Action request limit (`next.config.ts`) is 6 MB, room for an
+image at the limit plus the form's encoding. The upload control refuses larger
+images before sending them; the service refuses them for every caller.
 
 **Search (M3)** matches the query as a case-insensitive substring (`ILIKE`,
 with its wildcards escaped) against title and body of published posts; there
@@ -201,10 +220,11 @@ English.
   `Prose` (rendered Markdown, including code, quotes, lists, and tables),
   `Pager`, `Button` and `ButtonLink`, `StatusBadge`, `Field` (labelled inputs
   and errors), `TagField` (a post's tags as removable chips with an input that
-  adds them), `Notice` (a form's error or success message), `PostTable` (the
-  admin post list), `TrashTable` (the admin trash), `TokenTable` (the admin API
-  token list), and `EditorLayout` (Markdown and preview side by side,
-  stacked below 900 px).
+  adds them), `Notice` (a form's error or success message), `ImageUpload` (a
+  button that uploads an image file and reports a refusal beside it),
+  `PostTable` (the admin post list), `TrashTable` (the admin trash),
+  `TokenTable` (the admin API token list), and `EditorLayout` (Markdown and
+  preview side by side, stacked below 900 px).
 - **Code blocks:** Shiki renders with one dark theme in both color schemes, so
   code looks the same everywhere.
 - **Site name:** read from `SITE_NAME` through `server/config`, default
@@ -256,7 +276,7 @@ host ([0003](../decisions/0003-mcp-as-host-stdio-client.md)).
 | Service | Image | Details |
 | --- | --- | --- |
 | `db` | `postgres:18` | Volume `pgdata`; health check with `pg_isready`; published on `127.0.0.1:5432` (`DB_PORT`) for `npm run dev` |
-| `web` | Built from `Dockerfile` (Next.js standalone output on Node 24) | Waits for `db`; on start runs `prisma migrate deploy`, ensures the owner, then serves on `127.0.0.1:3000` (`WEB_PORT`); a `media` volume for uploads is added in M3 |
+| `web` | Built from `Dockerfile` (Next.js standalone output on Node 24) | Waits for `db`; on start runs `prisma migrate deploy`, ensures the owner, then serves on `127.0.0.1:3000` (`WEB_PORT`); volume `media` at `MEDIA_DIR` (`/app/media`) keeps uploaded images |
 
 `docker compose up --build` from a fresh clone with `.env` copied from
 `.env.example` runs the complete blog. There is no seed content; the owner
@@ -268,7 +288,6 @@ account comes from `.env`. Development uses `npm run dev` against the Compose
 | Decision | Needed by | Current default |
 | --- | --- | --- |
 | Search index | M3 | `ILIKE` without an index; add `pg_trgm` only if measured latency requires it |
-| `Image` fields, upload size limit, and accepted file types | M3 | None; files on the `media` volume, metadata in Postgres, owned by `media` |
 | `Comment` and rate-limit record fields | M4 | None; stored in Postgres, owned by `comments` |
 | Notifying the owner of pending comments outside the admin | M4 | No notification (PRD open question) |
 | Interface translation library and language switch | M5 | English interface text; candidate next-intl ([0004](../decisions/0004-language-prefixed-urls-and-translation-groups.md)) |

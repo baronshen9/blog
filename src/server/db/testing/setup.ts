@@ -2,6 +2,7 @@ import { beforeEach, inject } from "vitest";
 import { getDb } from "@/server/db";
 
 process.env.DATABASE_URL = inject("databaseUrl");
+process.env.MEDIA_DIR = inject("mediaDir");
 
 // Every test starts with every application table empty. Test files run one at
 // a time (`fileParallelism: false` in vitest.config.ts), so no other test can

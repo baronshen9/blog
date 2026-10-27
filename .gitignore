@@ -9,8 +9,9 @@ src/server/db/generated/
 test-results/
 playwright-report/
 
-# Local configuration and worktrees
+# Local configuration, uploads, and worktrees
 .env
+/media/
 .worktrees/
 
 # OS files

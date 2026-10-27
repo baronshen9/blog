@@ -1,4 +1,7 @@
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   PostgreSqlContainer,
   type StartedPostgreSqlContainer,
@@ -8,14 +11,20 @@ import type { TestProject } from "vitest/node";
 declare module "vitest" {
   export interface ProvidedContext {
     databaseUrl: string;
+    mediaDir: string;
   }
 }
 
 let container: StartedPostgreSqlContainer | undefined;
+let mediaDir: string | undefined;
 
 // Starts one Postgres for the whole run, applies the committed migrations, and
-// fails when they do not produce the schema in prisma/schema.prisma.
+// fails when they do not produce the schema in prisma/schema.prisma. Uploaded
+// images go to a directory of the run's own.
 export async function setup(project: TestProject): Promise<void> {
+  mediaDir = mkdtempSync(join(tmpdir(), "blog-media-"));
+  project.provide("mediaDir", mediaDir);
+
   container = await new PostgreSqlContainer("postgres:18").start();
   const databaseUrl = container.getConnectionUri();
 
@@ -37,6 +46,7 @@ export async function setup(project: TestProject): Promise<void> {
 
 export async function teardown(): Promise<void> {
   await container?.stop();
+  if (mediaDir) rmSync(mediaDir, { recursive: true, force: true });
 }
 
 function prisma(args: string[], databaseUrl: string): void {

@@ -29,3 +29,8 @@ const processor = unified()
 export async function renderMarkdown(markdown: string): Promise<string> {
   return String(await processor.process(markdown));
 }
+
+// Markdown that shows the image at `path`, with `alt` as its description.
+export function imageMarkdown(alt: string, path: string): string {
+  return `![${alt.replace(/[\\[\]]/g, "\\$&")}](${path})`;
+}

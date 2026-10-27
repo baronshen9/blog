@@ -5,6 +5,9 @@ const schema = z.object({
   OWNER_USERNAME: z.string().min(1),
   OWNER_PASSWORD: z.string().min(1),
   SITE_DEFAULT_LANGUAGE: z.enum(["zh", "en"]),
+  // Directory that holds uploaded image files; Compose mounts the `media`
+  // volume there.
+  MEDIA_DIR: z.string().min(1),
   // Compose passes an empty string when .env leaves the name out.
   SITE_NAME: z.preprocess(
     (value) => value || undefined,

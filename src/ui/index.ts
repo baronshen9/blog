@@ -7,6 +7,7 @@ export { Button, ButtonLink } from "./button";
 export { Card } from "./card";
 export { EditorLayout } from "./editor-layout";
 export { Field } from "./field";
+export { ImageUpload, type ImageUploadResult } from "./image-upload";
 export { LanguageLabel } from "./language-label";
 export { Notice } from "./notice";
 export { PageTitle } from "./page-title";
