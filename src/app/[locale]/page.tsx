@@ -4,6 +4,7 @@ import { DomainError } from "@/server/errors";
 import { listPublishedPosts } from "@/server/posts";
 import { PageTitle, Pager, PostCard } from "@/ui";
 import { pageParam } from "./page-param";
+import { tagHref } from "./tag-href";
 
 export const metadata: Metadata = { title: "Posts" };
 
@@ -36,6 +37,7 @@ export default async function HomePage({
           key={`${language}/${slug}`}
           href={`/${language}/posts/${slug}`}
           language={language}
+          tagHref={tagHref(locale)}
           {...post}
         />
       ))}

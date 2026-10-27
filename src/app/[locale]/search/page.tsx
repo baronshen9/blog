@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { pageParam } from "@/app/[locale]/page-param";
+import { tagHref } from "@/app/[locale]/tag-href";
 import { DomainError } from "@/server/errors";
 import { searchPublishedPosts } from "@/server/posts";
 import { PageTitle, Pager, PostCard } from "@/ui";
@@ -53,6 +54,7 @@ export default async function SearchPage({
           key={`${language}/${slug}`}
           href={`/${language}/posts/${slug}`}
           language={language}
+          tagHref={tagHref(locale)}
           {...post}
         />
       ))}

@@ -1,0 +1,27 @@
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-xs);
+}
+
+.link {
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  line-height: var(--leading-normal);
+  text-decoration: none;
+}
+
+.link:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}

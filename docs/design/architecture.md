@@ -144,6 +144,12 @@ with its wildcards escaped) against title and body of published posts; there
 is no separate search service. The header of every public page submits `?q=`
 to `/<locale>/search`, which lists matches like the home page.
 
+**Tag pages (M3)** at `/<locale>/tags/<tag>` (the name percent-encoded) list
+the published posts carrying the tag, compared normalized, like the home page.
+Post lists, search results, and the post page show each published post's tags
+as links to these pages. A tag no published post carries is not found, so the
+tags of drafts and trashed posts never reach readers.
+
 ## Cross-cutting rules
 
 - **Errors:** services throw `DomainError` with a code (`NOT_FOUND`,
@@ -201,7 +207,8 @@ English.
   `Prose` (rendered Markdown, including code, quotes, lists, and tables),
   `Pager`, `Button` and `ButtonLink`, `StatusBadge`, `Field` (labelled inputs
   and errors), `TagField` (a post's tags as removable chips with an input that
-  adds them), `Notice` (a form's error or success message), `PostTable` (the
+  adds them), `TagList` (a published post's tags as links to their tag
+  pages), `Notice` (a form's error or success message), `PostTable` (the
   admin post list), `TrashTable` (the admin trash), `TokenTable` (the admin API
   token list), and `EditorLayout` (Markdown and preview side by side,
   stacked below 900 px).

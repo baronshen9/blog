@@ -6,7 +6,8 @@ import { z } from "zod";
 import { renderMarkdown } from "@/lib";
 import { DomainError } from "@/server/errors";
 import { getPublishedPost, languages } from "@/server/posts";
-import { Card, PostMeta, Prose } from "@/ui";
+import { tagHref } from "@/app/[locale]/tag-href";
+import { Card, PostMeta, Prose, TagList } from "@/ui";
 
 type Params = Promise<{ locale: string; slug: string }>;
 
@@ -42,7 +43,10 @@ export default async function PostPage({ params }: { params: Params }) {
         backHref={`/${post.language}`}
         backLabel="All posts"
         meta={
-          <PostMeta publishedAt={post.publishedAt} language={post.language} />
+          <>
+            <PostMeta publishedAt={post.publishedAt} language={post.language} />
+            <TagList tags={post.tags} hrefFor={tagHref(post.language)} />
+          </>
         }
       >
         <Prose html={body} />

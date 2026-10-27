@@ -7,6 +7,7 @@ import {
   getPublishedPost,
   listPosts,
   listPublishedPosts,
+  listPublishedPostsByTag,
   listTrashedPosts,
   publishedPageSize,
   restorePost,
@@ -342,6 +343,7 @@ test("publishing makes a post public at its language and slug", async () => {
     title: "First post",
     slug: "first-post",
     bodyMarkdown: "Final",
+    tags: [],
     publishedAt: published.publishedAt,
   });
   await expect(getPublishedPost("zh", "first-post")).rejects.toMatchObject({
@@ -452,6 +454,7 @@ test("lists published posts newest first with an excerpt, in every language", as
     language: "en",
     title: "Old",
     slug: "old",
+    tags: [],
     publishedAt: new Date(Date.UTC(2026, 0, 1)),
     excerpt: "Old body",
   });
@@ -545,6 +548,56 @@ test("refuses an empty search and pages through many results", async () => {
   expect(second).toMatchObject({ page: 2, pageCount: 2 });
   expect(second.posts.map((post) => post.title)).toEqual(["Match 1"]);
   await expect(searchPublishedPosts("match", 3)).rejects.toMatchObject({
+    code: "NOT_FOUND",
+  });
+});
+
+test("lists published posts by tag in Chinese and English, any spelling", async () => {
+  await publishOn(1, { ...draft, title: "Old", tags: ["Next JS", "数据库"] });
+  await publishOn(3, {
+    ...draft,
+    title: "新",
+    language: "zh",
+    tags: ["数据库"],
+  });
+  await publishOn(2, { ...draft, title: "Middle", tags: ["next-js"] });
+  await publishOn(4, { ...draft, title: "Untagged" });
+
+  const titles = async (tag: string) =>
+    (await listPublishedPostsByTag(tag, 1)).posts.map((post) => post.title);
+
+  expect(await titles("next-js")).toEqual(["Middle", "Old"]);
+  expect(await titles("NEXT_JS")).toEqual(["Middle", "Old"]);
+  expect(await titles("数据库")).toEqual(["新", "Old"]);
+  const result = await listPublishedPostsByTag("Next JS", 1);
+  expect(result).toMatchObject({ tag: "next-js", page: 1, pageCount: 1 });
+  expect(result.posts[1]?.tags).toEqual(["next-js", "数据库"]);
+});
+
+test("a tag without published posts is not found", async () => {
+  await createDraft({ ...draft, title: "Draft", tags: ["hidden"] });
+  const unpublished = await publishOn(1, { ...draft, tags: ["hidden"] });
+  await updatePost(unpublished.id, { status: "draft" });
+  const trashed = await publishOn(2, { ...draft, tags: ["hidden"] });
+  await trashPost(trashed.id);
+
+  for (const tag of ["hidden", "missing", "", "a/b"]) {
+    await expect(listPublishedPostsByTag(tag, 1)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  }
+});
+
+test("pages through a tag's posts and refuses pages that do not exist", async () => {
+  for (let day = 1; day <= publishedPageSize + 1; day++) {
+    await publishOn(day, { ...draft, title: `Day ${day}`, tags: ["daily"] });
+  }
+  await publishOn(30, { ...draft, title: "Other" });
+
+  const second = await listPublishedPostsByTag("daily", 2);
+  expect(second).toMatchObject({ page: 2, pageCount: 2 });
+  expect(second.posts.map((post) => post.title)).toEqual(["Day 1"]);
+  await expect(listPublishedPostsByTag("daily", 3)).rejects.toMatchObject({
     code: "NOT_FOUND",
   });
 });
