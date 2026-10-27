@@ -111,4 +111,11 @@ test("an unknown post, page, or language URL is not found", async ({
   await expectNotFound(page, "/en/no/such/page");
   await expectNotFound(page, "/fr");
   await expectNotFound(page, "/fr/posts/anything");
+  // A malformed percent-encoding names no page under any route.
+  await expectNotFound(page, "/en/posts/%E0");
+  await expectNotFound(page, "/zh/tags/%E0");
+  await expectNotFound(page, "/en/%E0/x");
+  await expectNotFound(page, "/%E0/x");
+  await expectNotFound(page, "/media/%E0.png");
+  await expectNotFound(page, "/admin/posts/%E0");
 });

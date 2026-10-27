@@ -1,18 +1,18 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { sessionCookie } from "@/app/admin/session-cookie";
-import { getConfig } from "@/server/config";
 import { languages } from "@/server/posts";
 
-// Next.js root hook for two cases:
+// Next.js root hook for three cases:
+// - A path with a malformed percent-encoding (`/en/posts/%E0`) names no page.
+//   Next.js fails to decode such a path into route params and answers with a
+//   bare 500, so it gets the framed not-found page instead (see `missing`).
 // - Signed-out visitors of admin pages go to the sign-in page. Only the
 //   presence of a session cookie is checked; pages and actions validate it.
-// - A public URL whose first segment is not a supported language (`/fr/x`) is
-//   served by the default language's catch-all page, so it gets the framed
-//   not-found page with a 404 instead of the framework's default page. The
-//   rewrite drops the original path, which could otherwise name a real page
-//   (`/posts/<slug>` would become `/en/posts/<slug>`).
+// - A public URL whose first segment is not a supported language (`/fr/x`)
+//   gets the framed not-found page too.
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  if (!decodes(pathname)) return missing(request);
   if (pathname === "/admin" || pathname.startsWith("/admin/")) {
     if (
       pathname !== "/admin/sign-in" &&
@@ -22,13 +22,33 @@ export function proxy(request: NextRequest) {
     }
     return;
   }
+  if (pathname.startsWith("/media/")) return;
   const first = pathname.split("/")[1] ?? "";
   if (first && !(languages as readonly string[]).includes(first)) {
-    const url = request.nextUrl.clone();
-    url.pathname = `/${getConfig().SITE_DEFAULT_LANGUAGE}/unknown-language`;
-    return NextResponse.rewrite(url);
+    return missing(request);
   }
 }
 
-// Every other top-level route outside the languages must be excluded here.
-export const config = { matcher: "/((?!_next/|healthz$|api/|media/).*)" };
+function decodes(pathname: string): boolean {
+  try {
+    decodeURIComponent(pathname);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Serves the not-found page of the static `/missing` route, in the default
+// language's frame. Next.js matches the rewritten route's pattern against the
+// original path, so a target with a dynamic segment would hit the same decode
+// failure. The rewrite also drops the original path, which could otherwise
+// name a real page (`/posts/<slug>` would become `/en/posts/<slug>`).
+function missing(request: NextRequest) {
+  const url = request.nextUrl.clone();
+  url.pathname = "/missing";
+  return NextResponse.rewrite(url);
+}
+
+// Every other top-level route outside the languages must be excluded here or
+// handled above.
+export const config = { matcher: "/((?!_next/|healthz$|api/|missing$).*)" };
