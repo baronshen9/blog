@@ -10,6 +10,7 @@ import {
   listTrashedPosts,
   publishedPageSize,
   restorePost,
+  searchPublishedPosts,
   trashPost,
   updatePost,
 } from ".";
@@ -390,6 +391,65 @@ test("pages through a long list and refuses pages that do not exist", async () =
       code: "NOT_FOUND",
     });
   }
+});
+
+test("searches titles and bodies of published posts in Chinese and English", async () => {
+  await publishOn(1, { ...draft, title: "Testing Notes", bodyMarkdown: "x" });
+  await publishOn(2, { ...draft, title: "Other", bodyMarkdown: "On TESTING" });
+  await publishOn(3, {
+    language: "zh",
+    title: "部署笔记",
+    bodyMarkdown: "在本机运行一套完整的博客",
+  });
+  await publishOn(4, { ...draft, title: "Unrelated", bodyMarkdown: "Nothing" });
+  await publishOn(5, { ...draft, title: "100% sure", bodyMarkdown: "a_b \\n" });
+
+  const titles = async (query: string) =>
+    (await searchPublishedPosts(query, 1)).posts.map((post) => post.title);
+
+  expect(await titles(" testing ")).toEqual(["Other", "Testing Notes"]);
+  expect(await titles("笔记")).toEqual(["部署笔记"]);
+  expect(await titles("完整的博客")).toEqual(["部署笔记"]);
+  expect(await titles("missing")).toEqual([]);
+  // LIKE's wildcards and escape character match only themselves.
+  expect(await titles("0%")).toEqual(["100% sure"]);
+  expect(await titles("%s")).toEqual([]);
+  expect(await titles("a_b")).toEqual(["100% sure"]);
+  expect(await titles("o_e")).toEqual([]);
+  expect(await titles("\\n")).toEqual(["100% sure"]);
+});
+
+test("never finds drafts, unpublished, or trashed posts", async () => {
+  await createDraft({ ...draft, title: "Draft match" });
+  const unpublished = await publishOn(1, {
+    ...draft,
+    title: "Unpublished match",
+  });
+  await updatePost(unpublished.id, { ...draft, status: "draft" });
+  const trashed = await publishOn(2, { ...draft, title: "Trashed match" });
+  await trashPost(trashed.id);
+
+  await expect(searchPublishedPosts("match", 1)).resolves.toEqual({
+    posts: [],
+    page: 1,
+    pageCount: 1,
+  });
+});
+
+test("refuses an empty search and pages through many results", async () => {
+  for (let day = 1; day <= publishedPageSize + 1; day++) {
+    await publishOn(day, { ...draft, title: `Match ${day}` });
+  }
+
+  await expect(searchPublishedPosts("  ", 1)).rejects.toMatchObject({
+    code: "VALIDATION",
+  });
+  const second = await searchPublishedPosts("match", 2);
+  expect(second).toMatchObject({ page: 2, pageCount: 2 });
+  expect(second.posts.map((post) => post.title)).toEqual(["Match 1"]);
+  await expect(searchPublishedPosts("match", 3)).rejects.toMatchObject({
+    code: "NOT_FOUND",
+  });
 });
 
 test("lists trashed posts, most recently trashed first", async () => {

@@ -21,6 +21,7 @@ export default async function LocaleLayout({
         <SiteFrame
           siteName={getConfig().SITE_NAME}
           homeHref={`/${locale.data}`}
+          searchHref={`/${locale.data}/search`}
         >
           {children}
         </SiteFrame>

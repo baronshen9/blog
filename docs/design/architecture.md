@@ -129,9 +129,10 @@ milestones.
 3. Until M5 decides language filtering, both locales list posts of every
    language, each linking to its own `/<language>/posts/<slug>`.
 
-**Search (M3)** matches the query as a case-insensitive substring (`ILIKE`)
-against title and body of published posts; there is no separate search
-service.
+**Search (M3)** matches the query as a case-insensitive substring (`ILIKE`,
+with its wildcards escaped) against title and body of published posts; there
+is no separate search service. The header of every public page submits `?q=`
+to `/<locale>/search`, which lists matches like the home page.
 
 ## Cross-cutting rules
 

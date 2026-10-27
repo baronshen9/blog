@@ -164,7 +164,39 @@ export async function getPublishedPost(
 export async function listPublishedPosts(
   page: number,
 ): Promise<PublishedPostPage> {
-  const where = { status: "published", deletedAt: null } as const;
+  return publishedPostPage(page);
+}
+
+// A published-post query: one page of the published posts outside the trash
+// whose title or body contains the query, ignoring case, ordered and paged
+// like listPublishedPosts. A substring match finds Chinese words, which have
+// no spaces between them, as reliably as English ones. A query of only
+// spaces is refused, because every post contains the empty string.
+export async function searchPublishedPosts(
+  query: string,
+  page: number,
+): Promise<PublishedPostPage> {
+  const text = query.trim();
+  if (!text) throw new DomainError("VALIDATION", "Enter a word to search for.");
+  return publishedPostPage(page, text);
+}
+
+// One page of published posts outside the trash, only those containing the
+// search text when one is given. Prisma passes `contains` to ILIKE unescaped,
+// so LIKE's wildcards and escape character are escaped to match literally.
+async function publishedPostPage(
+  page: number,
+  search?: string,
+): Promise<PublishedPostPage> {
+  const contains = {
+    contains: search?.replace(/[\\%_]/g, "\\$&"),
+    mode: "insensitive",
+  } as const;
+  const where = {
+    status: "published",
+    deletedAt: null,
+    ...(search && { OR: [{ title: contains }, { bodyMarkdown: contains }] }),
+  } as const;
   const count = await getDb().post.count({ where });
   const pageCount = Math.max(1, Math.ceil(count / publishedPageSize));
   if (!Number.isSafeInteger(page) || page < 1 || page > pageCount) {
