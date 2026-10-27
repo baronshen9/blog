@@ -4,6 +4,7 @@ import {
   startTransition,
   useActionState,
   useRef,
+  useState,
   type FormEvent,
   type MouseEvent,
 } from "react";
@@ -48,7 +49,10 @@ export function PostEditor({
     {},
   );
   const body = useRef<HTMLTextAreaElement>(null);
-  const previewButton = useRef<HTMLButtonElement>(null);
+  // While an image uploads, its Markdown is not in the body yet, so the post
+  // cannot be saved, previewed, or trashed until the upload ends.
+  const [uploading, setUploading] = useState(false);
+  const busy = pending || uploading;
 
   // Submitted here rather than through the form's action prop, so React does
   // not reset the fields afterwards: the chosen language and anything typed
@@ -83,7 +87,9 @@ export function PostEditor({
     const after = tail ? gap(/^\n*/.exec(tail)?.[0] ?? "") : "\n";
     textarea.setRangeText(`${before}${markdown}${after}`, start, end, "end");
     textarea.focus();
-    textarea.form?.requestSubmit(previewButton.current);
+    const form = new FormData(textarea.form ?? undefined);
+    form.set("intent", "preview");
+    startTransition(() => action(form));
   }
 
   // Saving a new post opens it in a new editor, which would drop anything
@@ -152,6 +158,7 @@ export function PostEditor({
             maxBytes={images.maxBytes}
             upload={uploadImageAction}
             onUploaded={insertImage}
+            onUploadingChange={setUploading}
             disabled={pending}
           />
         }
@@ -179,17 +186,11 @@ export function PostEditor({
         actions={
           <>
             {status && (
-              <Button type="button" onClick={trash} disabled={pending}>
+              <Button type="button" onClick={trash} disabled={busy}>
                 Move to trash
               </Button>
             )}
-            <Button
-              ref={previewButton}
-              type="submit"
-              name="intent"
-              value="preview"
-              disabled={pending}
-            >
+            <Button type="submit" name="intent" value="preview" disabled={busy}>
               Preview
             </Button>
             <Button
@@ -197,7 +198,7 @@ export function PostEditor({
               variant={status === "draft" ? "secondary" : "primary"}
               name="intent"
               value="save"
-              disabled={pending}
+              disabled={busy}
             >
               {status === "published" ? "Save" : "Save draft"}
             </Button>
@@ -207,7 +208,7 @@ export function PostEditor({
                 variant={status === "draft" ? "primary" : "secondary"}
                 name="intent"
                 value={status === "draft" ? "publish" : "unpublish"}
-                disabled={pending}
+                disabled={busy}
               >
                 {status === "draft" ? "Publish" : "Unpublish"}
               </Button>
