@@ -31,6 +31,8 @@ export async function renderMarkdown(markdown: string): Promise<string> {
 }
 
 // Markdown that shows the image at `path`, with `alt` as its description.
+// Line breaks become spaces, since a blank line would end the image.
 export function imageMarkdown(alt: string, path: string): string {
-  return `![${alt.replace(/[\\[\]]/g, "\\$&")}](${path})`;
+  const description = alt.replace(/\s*[\r\n]+\s*/g, " ");
+  return `![${description.replace(/[\\[\]]/g, "\\$&")}](${path})`;
 }

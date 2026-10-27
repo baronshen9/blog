@@ -44,3 +44,12 @@ test("inserts an uploaded image that renders with its description", async () => 
     '<p><img src="/media/a.png" alt="Plot [v2]"></p>',
   );
 });
+
+test("keeps a multi-line image description on one line", async () => {
+  const markdown = imageMarkdown("first\n\nsecond\r\nthird", "/media/a.png");
+
+  expect(markdown).toBe("![first second third](/media/a.png)");
+  expect(await renderMarkdown(markdown)).toBe(
+    '<p><img src="/media/a.png" alt="first second third"></p>',
+  );
+});
