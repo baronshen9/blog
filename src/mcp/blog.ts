@@ -3,9 +3,15 @@
 // the answer into text for the conversation. Content rules live in the API;
 // nothing here decides what a post may be. Node runs this file without a
 // build, so it uses only erasable TypeScript.
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import type { z } from "zod";
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import {
+  type CallToolResult,
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+  type Tool,
+  type ToolAnnotations,
+} from "@modelcontextprotocol/sdk/types.js";
+import { z } from "zod";
 import {
   createPostRequest,
   errorResponse,
@@ -28,118 +34,172 @@ type Call = {
   body?: unknown;
 };
 
-const id = { id: postResponse.shape.id.describe("The post's id.") };
+type ToolSpec<A, R> = {
+  name: string;
+  title: string;
+  description: string;
+  input: z.ZodType<A>;
+  annotations?: ToolAnnotations;
+  call: (args: A) => Call;
+  // The success response's schema; none for an empty response.
+  response?: z.ZodType<R>;
+};
 
-export function createBlogServer(config: BlogConfig): McpServer {
-  const server = new McpServer({ name: "blog", version: "1.0.0" });
-  const api = <T>(call: Call, schema?: z.ZodType<T>) =>
-    request(config, call, schema);
+type BlogTool = {
+  definition: Tool;
+  run: (args: unknown, config: BlogConfig) => Promise<CallToolResult>;
+};
 
-  server.registerTool(
-    "list_posts",
-    {
-      title: "List posts",
-      description:
-        "List the blog's posts outside the trash, most recently changed first, optionally only drafts or only published posts.",
-      inputSchema: listPostsQuery.shape,
-      annotations: { readOnlyHint: true },
-    },
-    ({ status }) =>
-      api(
-        { method: "GET", path: status ? `/posts?status=${status}` : "/posts" },
-        postListResponse,
-      ),
+const postId = z.strictObject({
+  id: postResponse.shape.id.describe("The post's id, as list_posts shows it."),
+});
+const { title, bodyMarkdown, slug } = updatePostRequest.shape;
+
+const tools: BlogTool[] = [
+  tool({
+    name: "list_posts",
+    title: "List posts",
+    description:
+      "List the blog's posts outside the trash, most recently changed first, optionally only drafts or only published posts.",
+    input: listPostsQuery,
+    annotations: { readOnlyHint: true },
+    call: ({ status }) => ({
+      method: "GET",
+      path: status ? `/posts?status=${status}` : "/posts",
+    }),
+    response: postListResponse,
+  }),
+  tool({
+    name: "get_post",
+    title: "Read a post",
+    description: "Read one post, including its Markdown body.",
+    input: postId,
+    annotations: { readOnlyHint: true },
+    call: ({ id }) => ({ method: "GET", path: `/posts/${id}` }),
+    response: postResponse,
+  }),
+  tool({
+    name: "create_draft",
+    title: "Create a draft",
+    description:
+      "Create a draft post in Chinese (zh) or English (en) with a title and a Markdown body. The slug is generated from the title.",
+    input: createPostRequest,
+    call: (draft) => ({ method: "POST", path: "/posts", body: draft }),
+    response: postResponse,
+  }),
+  tool({
+    name: "update_post",
+    title: "Edit a post",
+    description:
+      "Change a post's title, Markdown body, or slug; only the fields given change. The slug can change only before the post's first publication.",
+    input: postId.extend({ title, bodyMarkdown, slug }),
+    call: ({ id, ...fields }) => ({
+      method: "PATCH",
+      path: `/posts/${id}`,
+      body: fields,
+    }),
+    response: postResponse,
+  }),
+  tool({
+    name: "publish_post",
+    title: "Publish a post",
+    description: "Publish a post so that it appears on the public site.",
+    input: postId,
+    call: ({ id }) => ({
+      method: "PATCH",
+      path: `/posts/${id}`,
+      body: { status: "published" },
+    }),
+    response: postResponse,
+  }),
+  tool({
+    name: "unpublish_post",
+    title: "Unpublish a post",
+    description:
+      "Return a published post to draft so that it no longer appears on the public site.",
+    input: postId,
+    call: ({ id }) => ({
+      method: "PATCH",
+      path: `/posts/${id}`,
+      body: { status: "draft" },
+    }),
+    response: postResponse,
+  }),
+  tool({
+    name: "delete_post",
+    title: "Delete a post",
+    description:
+      "Move a post to the trash and off the public site. The owner can restore it from the admin's trash.",
+    input: postId,
+    annotations: { destructiveHint: true },
+    call: ({ id }) => ({ method: "DELETE", path: `/posts/${id}` }),
+  }),
+];
+
+// The low-level Server rather than McpServer: McpServer answers invalid
+// arguments with a validation dump, and the owner should read plain sentences.
+export function createBlogServer(config: BlogConfig): Server {
+  const server = new Server(
+    { name: "blog", version: "1.0.0" },
+    { capabilities: { tools: {} } },
   );
-
-  server.registerTool(
-    "get_post",
-    {
-      title: "Read a post",
-      description: "Read one post, including its Markdown body.",
-      inputSchema: id,
-      annotations: { readOnlyHint: true },
-    },
-    ({ id }) => api({ method: "GET", path: `/posts/${id}` }, postResponse),
-  );
-
-  server.registerTool(
-    "create_draft",
-    {
-      title: "Create a draft",
-      description:
-        "Create a draft post in Chinese (zh) or English (en) with a title and a Markdown body. The slug is generated from the title.",
-      inputSchema: createPostRequest.shape,
-    },
-    (draft) =>
-      api({ method: "POST", path: "/posts", body: draft }, postResponse),
-  );
-
-  server.registerTool(
-    "update_post",
-    {
-      title: "Edit a post",
-      description:
-        "Change a post's title, Markdown body, or slug; only the fields given change. The slug can change only before the post's first publication.",
-      inputSchema: {
-        ...id,
-        title: updatePostRequest.shape.title,
-        bodyMarkdown: updatePostRequest.shape.bodyMarkdown,
-        slug: updatePostRequest.shape.slug,
-      },
-    },
-    ({ id, ...fields }) =>
-      api(
-        { method: "PATCH", path: `/posts/${id}`, body: fields },
-        postResponse,
-      ),
-  );
-
-  server.registerTool(
-    "publish_post",
-    {
-      title: "Publish a post",
-      description: "Publish a post so that it appears on the public site.",
-      inputSchema: id,
-    },
-    ({ id }) =>
-      api(
-        {
-          method: "PATCH",
-          path: `/posts/${id}`,
-          body: { status: "published" },
-        },
-        postResponse,
-      ),
-  );
-
-  server.registerTool(
-    "unpublish_post",
-    {
-      title: "Unpublish a post",
-      description:
-        "Return a published post to draft so that it no longer appears on the public site.",
-      inputSchema: id,
-    },
-    ({ id }) =>
-      api(
-        { method: "PATCH", path: `/posts/${id}`, body: { status: "draft" } },
-        postResponse,
-      ),
-  );
-
-  server.registerTool(
-    "delete_post",
-    {
-      title: "Delete a post",
-      description:
-        "Move a post to the trash and off the public site. The owner can restore it from the admin's trash.",
-      inputSchema: id,
-      annotations: { destructiveHint: true },
-    },
-    ({ id }) => api({ method: "DELETE", path: `/posts/${id}` }),
-  );
-
+  server.setRequestHandler(ListToolsRequestSchema, () => ({
+    tools: tools.map(({ definition }) => definition),
+  }));
+  server.setRequestHandler(CallToolRequestSchema, ({ params }) => {
+    const match = tools.find(
+      ({ definition }) => definition.name === params.name,
+    );
+    if (!match) return failure(`The blog has no tool named ${params.name}.`);
+    return match.run(params.arguments ?? {}, config);
+  });
   return server;
+}
+
+function tool<A, R>(spec: ToolSpec<A, R>): BlogTool {
+  const { name, title, description, input, annotations } = spec;
+  return {
+    definition: {
+      name,
+      title,
+      description,
+      inputSchema: z.toJSONSchema(input, {
+        io: "input",
+        target: "draft-7",
+      }) as Tool["inputSchema"],
+      annotations,
+    },
+    run: async (args, config) => {
+      const parsed = input.safeParse(args, { reportInput: true });
+      if (!parsed.success) return failure(describeArguments(parsed.error));
+      return request(config, spec.call(parsed.data), spec.response);
+    },
+  };
+}
+
+const fieldNames: Record<string, string> = {
+  id: "post id",
+  bodyMarkdown: "Markdown body",
+};
+
+// Argument errors as sentences, such as "The title is missing."
+function describeArguments(error: z.ZodError): string {
+  return error.issues
+    .map((issue) => {
+      if (issue.code === "unrecognized_keys") {
+        return `This tool does not take ${issue.keys.join(", ")}.`;
+      }
+      const key = issue.path.join(".");
+      const field = `The ${fieldNames[key] ?? key}`;
+      if (issue.code === "invalid_type" && issue.input === undefined) {
+        return `${field} is missing.`;
+      }
+      if (issue.code === "invalid_value") {
+        return `${field} must be ${issue.values.join(" or ")}.`;
+      }
+      return `${field} is not valid: ${issue.message}.`;
+    })
+    .join(" ");
 }
 
 // One API call as a tool result: the response body as JSON text, or a

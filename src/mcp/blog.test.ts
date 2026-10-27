@@ -161,13 +161,17 @@ test("reports missing configuration without calling the blog", async () => {
   expect(fetch).not.toHaveBeenCalled();
 });
 
-test("names a missing title without calling the blog", async () => {
+test("reports invalid arguments in plain language without calling the blog", async () => {
   const { call, fetch } = await connect(() => json(post));
-  const result = await call("create_draft", {
-    language: "en",
-    bodyMarkdown: "Hi",
+  expect(
+    await call("create_draft", { language: "fr", bodyMarkdown: "Hi" }),
+  ).toEqual({
+    isError: true,
+    text: "The language must be zh or en. The title is missing.",
   });
-  expect(result.isError).toBe(true);
-  expect(result.text).toMatch(/at title/);
+  expect(await call("get_post", { id: "42" })).toEqual({
+    isError: true,
+    text: "The post id is not valid: Invalid UUID.",
+  });
   expect(fetch).not.toHaveBeenCalled();
 });
