@@ -1,17 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { z } from "zod";
 import { DomainError } from "@/server/errors";
 import { listPublishedPosts } from "@/server/posts";
 import { PageTitle, Pager, PostCard } from "@/ui";
+import { pageParam } from "./page-param";
 
 export const metadata: Metadata = { title: "Posts" };
-
-const pageParam = z
-  .string()
-  .regex(/^[1-9]\d*$/)
-  .transform(Number)
-  .optional();
 
 // The home page of a language: published posts, newest first, one page per
 // ?page=. Reading the search parameters renders it on every request.
