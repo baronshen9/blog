@@ -1,6 +1,11 @@
 "use client";
 
-import { startTransition, useActionState, type FormEvent } from "react";
+import {
+  startTransition,
+  useActionState,
+  type FormEvent,
+  type MouseEvent,
+} from "react";
 import type { PostStatus } from "@/server/posts";
 import { Button, EditorLayout, Notice, Prose, StatusBadge } from "@/ui";
 import { editPostAction, type EditorState, type EditorValues } from "./actions";
@@ -27,6 +32,14 @@ export function PostEditor({
     event.preventDefault();
     const { submitter } = event.nativeEvent as SubmitEvent;
     const form = new FormData(event.currentTarget, submitter);
+    startTransition(() => action(form));
+  }
+
+  // A plain button rather than a submit button, so pressing Enter in a field
+  // never trashes the post.
+  function trash(event: MouseEvent<HTMLButtonElement>) {
+    const form = new FormData(event.currentTarget.form ?? undefined);
+    form.set("intent", "trash");
     startTransition(() => action(form));
   }
 
@@ -85,6 +98,11 @@ export function PostEditor({
         }
         actions={
           <>
+            {status && (
+              <Button type="button" onClick={trash} disabled={pending}>
+                Move to trash
+              </Button>
+            )}
             <Button
               type="submit"
               name="intent"

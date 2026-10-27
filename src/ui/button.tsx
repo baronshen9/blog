@@ -1,9 +1,9 @@
 import Link from "next/link";
 import styles from "./button.module.css";
 
-type Variant = { variant?: "primary" | "secondary" };
+type Variant = { variant?: "primary" | "secondary" | "danger" };
 
-function classes(variant: "primary" | "secondary", className?: string) {
+function classes(variant: Required<Variant>["variant"], className?: string) {
   return [styles.button, styles[variant], className].filter(Boolean).join(" ");
 }
 
