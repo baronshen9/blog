@@ -6,3 +6,4 @@ src/server/db/generated
 test-results
 playwright-report
 .env
+media

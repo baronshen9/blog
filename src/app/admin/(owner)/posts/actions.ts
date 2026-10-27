@@ -3,8 +3,9 @@
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { renderMarkdown } from "@/lib";
+import { imageMarkdown, renderMarkdown } from "@/lib";
 import { DomainError } from "@/server/errors";
+import { uploadImage } from "@/server/media";
 import {
   createDraft,
   languages,
@@ -12,6 +13,7 @@ import {
   updatePost,
   type PostStatus,
 } from "@/server/posts";
+import type { ImageUploadResult } from "@/ui";
 import { requireOwner } from "@/app/admin/session";
 
 const editorFields = z.object({
@@ -94,4 +96,22 @@ export async function editPostAction(
     throw error;
   }
   redirect(next);
+}
+
+// Stores the image in the form's `image` field and returns the Markdown that
+// shows it, described by the file's name without its extension.
+export async function uploadImageAction(
+  form: FormData,
+): Promise<ImageUploadResult> {
+  await requireOwner();
+  const file = form.get("image");
+  if (!(file instanceof File)) return { error: "Choose an image to upload." };
+  try {
+    const image = await uploadImage(new Uint8Array(await file.arrayBuffer()));
+    const alt = file.name.replace(/\.[^.]*$/, "");
+    return { markdown: imageMarkdown(alt, image.path) };
+  } catch (error) {
+    if (error instanceof DomainError) return { error: error.message };
+    throw error;
+  }
 }

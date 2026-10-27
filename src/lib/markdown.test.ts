@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { renderMarkdown } from ".";
+import { imageMarkdown, renderMarkdown } from ".";
 
 test("renders headings, lists, links, and highlighted code", async () => {
   const html = await renderMarkdown(`# Title
@@ -34,4 +34,13 @@ test("does not render raw HTML or script URLs", async () => {
   );
 
   expect(html).not.toMatch(/<script|<img|onerror|javascript:/);
+});
+
+test("inserts an uploaded image that renders with its description", async () => {
+  const markdown = imageMarkdown("Plot [v2]", "/media/a.png");
+
+  expect(markdown).toBe("![Plot \\[v2\\]](/media/a.png)");
+  expect(await renderMarkdown(markdown)).toBe(
+    '<p><img src="/media/a.png" alt="Plot [v2]"></p>',
+  );
 });

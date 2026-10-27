@@ -31,4 +31,4 @@ export function proxy(request: NextRequest) {
 }
 
 // Every other top-level route outside the languages must be excluded here.
-export const config = { matcher: "/((?!_next/|healthz$|api/).*)" };
+export const config = { matcher: "/((?!_next/|healthz$|api/|media/).*)" };

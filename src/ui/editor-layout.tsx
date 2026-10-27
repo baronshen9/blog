@@ -2,8 +2,9 @@ import Link from "next/link";
 import styles from "./editor-layout.module.css";
 
 // The post editor: title and status on top, then the language and the
-// post's public address, its tags, the Markdown and its preview side by side
-// (stacked below 900 px), and the form's messages and actions at the bottom.
+// post's public address, its tags, tools that insert into the Markdown, the
+// Markdown and its preview side by side (stacked below 900 px), and the
+// form's messages and actions at the bottom.
 // The layout labels the controls it is given, except the tags field, which
 // labels itself. `preview` is the rendered body, absent until the owner asks
 // for it. The address is either fixed, linking to the post when it is live,
@@ -15,6 +16,7 @@ export function EditorLayout({
   language,
   address,
   tags,
+  tools,
   markdown,
   preview,
   messages,
@@ -27,6 +29,7 @@ export function EditorLayout({
   address?:
     { path: string; live: boolean } | { prefix: string; slug: React.ReactNode };
   tags: React.ReactNode;
+  tools?: React.ReactNode;
   markdown: React.ReactNode;
   preview?: React.ReactNode;
   messages?: React.ReactNode;
@@ -69,6 +72,7 @@ export function EditorLayout({
         )}
       </div>
       {tags}
+      {tools}
       <div className={styles.panes}>
         <label className={styles.markdown}>
           <span className={styles.hidden}>Body (Markdown)</span>

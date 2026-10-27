@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getConfig } from "@/server/config";
+import { acceptedImageTypes, maxImageBytes } from "@/server/media";
 import { requireOwner } from "@/app/admin/session";
 import { PostEditor } from "@/app/admin/(owner)/posts/post-editor";
 
@@ -10,6 +11,7 @@ export default async function NewPostPage() {
   return (
     <main>
       <PostEditor
+        images={{ accept: acceptedImageTypes, maxBytes: maxImageBytes }}
         initial={{
           title: "",
           bodyMarkdown: "",

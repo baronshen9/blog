@@ -60,3 +60,17 @@ model ApiToken {
   lastUsedAt DateTime?
   revokedAt  DateTime?
 }
+
+enum ImageType {
+  png
+  jpeg
+  gif
+  webp
+}
+
+model Image {
+  id        String    @id @db.Uuid
+  type      ImageType
+  byteSize  Int
+  createdAt DateTime  @default(now())
+}
