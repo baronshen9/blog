@@ -5,6 +5,7 @@ import sharp from "sharp";
 import { getConfig } from "@/server/config";
 import { getDb } from "@/server/db";
 import { DomainError } from "@/server/errors";
+import { isCompleteGif } from "./gif";
 
 // The image formats the blog accepts, recognized by decoding the file rather
 // than by its name or declared type. SVG is not accepted: it can carry
@@ -87,14 +88,16 @@ export async function readImage(
   return { contentType: imageTypes[image.type].contentType, bytes };
 }
 
-// The format of an image in an accepted format that decodes completely, so a
-// truncated or corrupt file is refused rather than stored and shown broken.
+// The format of an image in an accepted format that decodes completely, every
+// frame of an animation included, so a truncated or corrupt file is refused
+// rather than stored and shown broken.
 async function decodedType(bytes: Uint8Array): Promise<ImageType | undefined> {
   try {
-    const image = sharp(bytes);
+    const image = sharp(bytes, { animated: true });
     const { format } = await image.metadata();
     if (!Object.hasOwn(imageTypes, format)) return undefined;
     await image.stats();
+    if (format === "gif" && !isCompleteGif(bytes)) return undefined;
     return format as ImageType;
   } catch {
     return undefined;
