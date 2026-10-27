@@ -206,6 +206,39 @@ test("a slug change racing the first publication never moves a published URL", a
   }
 });
 
+test("a save racing trashing or permanent deletion reports the post not found", async () => {
+  const removals = [
+    { deletedAt: new Date() },
+    null, // permanent deletion
+  ];
+  const saves = [
+    { title: "Saved meanwhile", status: "published" },
+    { slug: "renamed-meanwhile" },
+  ] as const;
+  for (const [remove, changes] of removals.flatMap((r) =>
+    saves.map((c) => [r, c] as const),
+  )) {
+    const post = await createDraft(draft);
+    let save: Promise<unknown> = Promise.resolve();
+
+    await getDb().$transaction(async (tx) => {
+      if (remove)
+        await tx.post.update({ where: { id: post.id }, data: remove });
+      else await tx.post.delete({ where: { id: post.id } });
+      save = updatePost(post.id, changes);
+      save.catch(() => undefined);
+      await waitForLockWait();
+    });
+
+    await expect(save).rejects.toMatchObject({ code: "NOT_FOUND" });
+  }
+  expect(
+    await getDb().post.count({
+      where: { OR: [{ status: "published" }, { slug: "renamed-meanwhile" }] },
+    }),
+  ).toBe(0);
+});
+
 test("lists posts outside the trash, most recently changed first", async () => {
   const older = await createDraft({ ...draft, title: "Older" });
   const newer = await createDraft({ ...draft, title: "Newer" });
@@ -325,6 +358,19 @@ test("concurrent saves never lose the first publication date", async () => {
     });
   }
 });
+
+// Waits until another connection is blocked on a row lock, so a test can hold
+// a write open while a concurrent save reaches it.
+async function waitForLockWait() {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const [row] = await getDb().$queryRaw<{ waiting: bigint }[]>`
+      SELECT count(*) AS waiting FROM pg_stat_activity
+      WHERE datname = current_database() AND wait_event_type = 'Lock'`;
+    if (row && row.waiting > 0n) return;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error("No save waited for the locked post.");
+}
 
 // Publishes a new post and backdates its first publication to `day`.
 async function publishOn(

@@ -41,6 +41,10 @@ test.each([
 test("lists tokens newest first with their use and revocation", async () => {
   const first = await createToken("Codex");
   const second = await createToken("Claude Code");
+  await getDb().apiToken.update({
+    where: { id: first.token.id },
+    data: { createdAt: new Date(Date.UTC(2026, 0, 1)) },
+  });
   await verifyToken(second.secret);
   await revokeToken(first.token.id);
 
