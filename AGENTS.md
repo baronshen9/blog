@@ -15,6 +15,7 @@ scripts/check.sh   # format check, lint, type check, migration drift, tests — 
 scripts/smoke.sh   # Docker Compose up, probe key paths with Playwright, tear down
 docker compose up --build              # run the complete blog at http://127.0.0.1:3000
 npx prisma migrate dev --name <slug>   # create a migration after changing prisma/schema.prisma
+node src/mcp/server.ts                 # the stdio MCP server; assistants start it (setup in README.md)
 ```
 
 Copy `.env.example` to `.env` before running Compose. Node 24 is pinned in

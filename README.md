@@ -1,10 +1,10 @@
 # Blog
 
-A self-hosted, single-author blog in Chinese and English. Today the owner
-writes, previews, and publishes Markdown posts in a web admin, and readers
-browse and read them in light or dark (milestone M1). Managing posts from
-Claude Code and Codex, tags and search, reader comments, and the bilingual
-interface arrive in later [milestones](docs/product/prd.md#milestones).
+A self-hosted, single-author blog in Chinese and English. The owner writes,
+previews, and publishes Markdown posts in a web admin or from Claude Code and
+Codex through the blog's MCP server, and readers browse and read them in light
+or dark. Tags and search, reader comments, and the bilingual interface arrive
+in later [milestones](docs/product/prd.md#milestones).
 
 - Product requirements: [docs/product/prd.md](docs/product/prd.md)
 - Architecture: [docs/design/architecture.md](docs/design/architecture.md)
@@ -37,6 +37,38 @@ npm ci
 docker compose up --detach --wait db
 npm run dev
 ```
+
+## Manage posts from Claude Code or Codex
+
+The MCP server in `src/mcp/` runs on your machine and calls the blog's API
+with a token. Its tools list posts by status, read a post, create a draft,
+edit it, publish, unpublish, and delete it to the trash (restore it from the
+admin's Trash).
+
+1. Run `npm ci` in this checkout; the server needs Node 24 and the installed
+   dependencies, and the blog must be running.
+2. In the admin, open Tokens, create a token for the assistant, and copy its
+   secret; it is shown only once.
+3. Register the server from the checkout's root, replacing `<secret>`. The
+   commands store the secret in your own client configuration
+   (`~/.claude.json` or `~/.codex/config.toml`); never commit it.
+
+   ```bash
+   # Claude Code
+   claude mcp add blog --scope user -e BLOG_URL=http://127.0.0.1:3000 \
+     -e BLOG_API_TOKEN=<secret> -- node "$PWD/src/mcp/server.ts"
+
+   # Codex
+   codex mcp add blog --env BLOG_URL=http://127.0.0.1:3000 \
+     --env BLOG_API_TOKEN=<secret> -- node "$PWD/src/mcp/server.ts"
+   ```
+
+   If `node` on the client's `PATH` is not Node 24, give the absolute path of
+   a Node 24 binary instead.
+4. Start a new conversation; `/mcp` in either client lists the `blog` tools.
+
+Revoking the token in the admin cuts the assistant off; the tools then report
+that the blog refused the token.
 
 ## Checks
 

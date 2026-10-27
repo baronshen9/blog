@@ -14,6 +14,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "@shikijs/rehype": "^4.5.0",

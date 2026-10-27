@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { signIn } from "./owner";
+import { createToken, signIn } from "./owner";
 
 test("an assistant publishes a post through the API with the owner's token", async ({
   page,
@@ -7,10 +7,7 @@ test("an assistant publishes a post through the API with the owner's token", asy
 }) => {
   const stamp = Date.now();
   await signIn(page);
-  await page.goto("/admin/tokens");
-  await page.getByLabel("Token name").fill(`API smoke ${stamp}`);
-  await page.getByRole("button", { name: "Create token" }).click();
-  const secret = await page.getByLabel("Secret").inputValue();
+  const secret = await createToken(page, `API smoke ${stamp}`);
   const headers = { authorization: `Bearer ${secret}` };
 
   const refused = await request.get("/api/v1/posts");
