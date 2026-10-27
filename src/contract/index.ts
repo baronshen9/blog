@@ -68,6 +68,20 @@ export const postListResponse = z.object({
   ),
 });
 
+// POST /images: stores an image file, sent Base64-encoded, under the same
+// rules as an upload in the admin; a refused file answers VALIDATION with the
+// reason. Responds with the image's path on the site and the Markdown that
+// shows it, described by `alt`.
+export const uploadImageRequest = z.strictObject({
+  alt: z.string(),
+  data: z.base64(),
+});
+
+export const imageResponse = z.object({
+  path: z.string(),
+  markdown: z.string(),
+});
+
 // Every failed request responds with this shape. INTERNAL is an unexpected
 // failure on the server; its message says nothing about the cause.
 export const errorCodes = [
@@ -86,5 +100,6 @@ export type CreatePostRequest = z.infer<typeof createPostRequest>;
 export type UpdatePostRequest = z.infer<typeof updatePostRequest>;
 export type PostResponse = z.infer<typeof postResponse>;
 export type PostListResponse = z.infer<typeof postListResponse>;
+export type ImageResponse = z.infer<typeof imageResponse>;
 export type ErrorCode = (typeof errorCodes)[number];
 export type ErrorResponse = z.infer<typeof errorResponse>;

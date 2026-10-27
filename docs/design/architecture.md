@@ -143,7 +143,9 @@ A later milestone adds `Comment` with its rate-limit records (owned by
 
 1. In the post editor, the owner picks a file; a Server Action passes its bytes
    to the `media` upload service, the one place that decides what is accepted.
-   Uploads through MCP reach the same service through the API.
+   Uploads through MCP reach the same service through the API: the
+   `upload_image` tool reads a local file and sends it to `POST /api/v1/images`,
+   which answers the same Markdown for the assistant to put in a post.
 2. The service accepts PNG, JPEG, GIF, and WebP up to 5 MB. It decodes the
    file with sharp to learn its format, rather than trusting its name or
    declared type, so truncated or corrupt files are refused too. SVG is

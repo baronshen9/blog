@@ -1,3 +1,6 @@
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -48,7 +51,7 @@ const json = (body: unknown, status = 200) =>
 const apiError = (status: number, code: string, message: string) => () =>
   json({ error: { code, message } }, status);
 
-test("offers one tool per post action", async () => {
+test("offers one tool per post action and an image upload", async () => {
   const { client } = await connect(() => json({}));
   const { tools } = await client.listTools();
   expect(tools.map((tool) => tool.name)).toEqual([
@@ -59,6 +62,7 @@ test("offers one tool per post action", async () => {
     "publish_post",
     "unpublish_post",
     "delete_post",
+    "upload_image",
   ]);
 });
 
@@ -181,6 +185,84 @@ test("reports invalid arguments in plain language without calling the blog", asy
   expect(await call("get_post", { id: "42" })).toEqual({
     isError: true,
     text: "The post id is not valid: Invalid UUID.",
+  });
+  expect(fetch).not.toHaveBeenCalled();
+});
+
+// A file in a fresh temporary folder, and that folder.
+async function localFile(name: string, bytes: Uint8Array) {
+  const dir = await mkdtemp(join(tmpdir(), "blog-mcp-"));
+  const file = join(dir, name);
+  await writeFile(file, bytes);
+  return { dir, file };
+}
+
+const uploaded = {
+  path: "/media/6f1c2a4e-8b1d-4c3e-9f2a-1b2c3d4e5f60.png",
+  markdown: "![Figure 1](/media/6f1c2a4e-8b1d-4c3e-9f2a-1b2c3d4e5f60.png)",
+};
+
+test.each([
+  ["the file's name", {}, "Figure 1"],
+  ["the given description", { alt: "A chart" }, "A chart"],
+])(
+  "upload_image sends a local file described by %s and returns its Markdown",
+  async (_, args, alt) => {
+    const bytes = new Uint8Array([137, 80, 78, 71]);
+    const { file } = await localFile("Figure 1.png", bytes);
+    const { call, fetch } = await connect(() => json(uploaded, 201));
+
+    const result = await call("upload_image", { file, ...args });
+
+    expect(result).toEqual({
+      isError: false,
+      text: JSON.stringify(uploaded, null, 2),
+    });
+    const [endpoint, init] = fetch.mock.calls[0] ?? [];
+    expect(String(endpoint)).toBe(`${url}/api/v1/images`);
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual({
+      alt,
+      data: Buffer.from(bytes).toString("base64"),
+    });
+  },
+);
+
+test("upload_image reports a file the blog refuses in plain language", async () => {
+  const { file } = await localFile("notes.txt", new Uint8Array([1, 2, 3]));
+  const { call } = await connect(
+    apiError(
+      400,
+      "VALIDATION",
+      "This file is not an accepted image; upload a PNG, JPEG, GIF, or WebP file.",
+    ),
+  );
+  expect(await call("upload_image", { file })).toEqual({
+    isError: true,
+    text: "The blog did not accept the request: This file is not an accepted image; upload a PNG, JPEG, GIF, or WebP file.",
+  });
+});
+
+test("upload_image reports a local file it cannot read without calling the blog", async () => {
+  const { dir } = await localFile("other.png", new Uint8Array([1]));
+  const missing = join(dir, "missing.png");
+  const { call, fetch } = await connect(() => json(uploaded, 201));
+
+  expect(await call("upload_image", { file: missing })).toEqual({
+    isError: true,
+    text: `There is no file at ${missing}. Check the path of the image file on this machine.`,
+  });
+  expect(await call("upload_image", { file: dir })).toEqual({
+    isError: true,
+    text: `${dir} is a folder. Give the path of an image file.`,
+  });
+  expect(await call("upload_image", { file: "figure.png" })).toEqual({
+    isError: true,
+    text: '"figure.png" is not an absolute path. Give the full path of the image file on this machine.',
+  });
+  expect(await call("upload_image", {})).toEqual({
+    isError: true,
+    text: "The file path is missing.",
   });
   expect(fetch).not.toHaveBeenCalled();
 });
