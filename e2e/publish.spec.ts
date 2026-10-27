@@ -73,6 +73,8 @@ test("the owner publishes a draft that readers open until it is unpublished", as
   await expect(entry).not.toContainText("const x");
   await expectFitsPhone(page, "/en");
   await expectFitsPhone(page, url);
+  // Without a language the published post's path is still not found.
+  await expectNotFound(page, url.replace(/^\/en/, ""));
 
   await page.goto("/en");
   await page.getByRole("link", { name: title }).click();
@@ -103,7 +105,11 @@ test("the owner publishes a draft that readers open until it is unpublished", as
   await expect(await homeEntry(page, title)).toHaveCount(0);
 });
 
-test("an unknown post or page URL is not found", async ({ page }) => {
+test("an unknown post, page, or language URL is not found", async ({
+  page,
+}) => {
   await expectNotFound(page, `/zh/posts/missing-${Date.now()}`);
   await expectNotFound(page, "/en/no/such/page");
+  await expectNotFound(page, "/fr");
+  await expectNotFound(page, "/fr/posts/anything");
 });

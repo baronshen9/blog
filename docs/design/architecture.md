@@ -49,7 +49,7 @@ All application code lives under `src/`.
 | --- | --- | --- |
 | `app/` | Next.js routes only: `app/[locale]/` public pages, `app/admin/` owner admin, `app/api/v1/` token API, `/healthz`. Parses input, checks access, calls services, renders | `server`, `ui`, `contract`, `lib` |
 | `server/<domain>/` | Domain logic and persistence, one folder per domain: `posts`, `auth` (owner sessions), `tokens`, `health` (readiness for `/healthz`); later `media`, `comments`. Each exposes its services through `index.ts` | `server/db`, other domains' `index.ts`, `contract`, `lib` |
-| `proxy.ts`, `instrumentation.ts` | Next.js root hooks: the proxy redirects signed-out admin requests; `register()` creates the owner at server start | Same as `app/` |
+| `proxy.ts`, `instrumentation.ts` | Next.js root hooks: the proxy redirects signed-out admin requests and serves a URL whose first segment is not a language with the default language's not-found page (top-level routes outside the languages, such as `/healthz` and `/api`, are excluded in its matcher); `register()` creates the owner at server start | Same as `app/` |
 | `server/errors` | `DomainError` and its codes, shared by all domains | — |
 | `server/db` | The Prisma client | — |
 | `contract/` | zod schemas and types of the HTTP API | — |
