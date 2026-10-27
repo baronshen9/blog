@@ -73,6 +73,8 @@ test("the owner publishes a draft that readers open until it is unpublished", as
   await expect(entry).not.toContainText("const x");
   await expectFitsPhone(page, "/en");
   await expectFitsPhone(page, url);
+  // Without a language the published post's path is still not found.
+  await expectNotFound(page, url.replace(/^\/en/, ""));
 
   await page.goto("/en");
   await page.getByRole("link", { name: title }).click();
