@@ -104,6 +104,8 @@ export async function updatePost(
     title: title === undefined ? undefined : validateTitle(title),
     bodyMarkdown,
     status,
+    // Set explicitly so a slug-only save still writes, and therefore locks.
+    updatedAt: new Date(),
   };
   const newSlug = slug === undefined ? undefined : validateSlug(slug);
   return getDb().$transaction(async (tx) => {

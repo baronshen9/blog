@@ -206,10 +206,17 @@ test("a slug change racing the first publication never moves a published URL", a
 });
 
 test("a save racing trashing or permanent deletion reports the post not found", async () => {
-  for (const remove of [
+  const removals = [
     { deletedAt: new Date() },
     null, // permanent deletion
-  ]) {
+  ];
+  const saves = [
+    { title: "Saved meanwhile", status: "published" },
+    { slug: "renamed-meanwhile" },
+  ] as const;
+  for (const [remove, changes] of removals.flatMap((r) =>
+    saves.map((c) => [r, c] as const),
+  )) {
     const post = await createDraft(draft);
     let save: Promise<unknown> = Promise.resolve();
 
@@ -217,17 +224,18 @@ test("a save racing trashing or permanent deletion reports the post not found", 
       if (remove)
         await tx.post.update({ where: { id: post.id }, data: remove });
       else await tx.post.delete({ where: { id: post.id } });
-      save = updatePost(post.id, {
-        title: "Saved meanwhile",
-        status: "published",
-      });
+      save = updatePost(post.id, changes);
       save.catch(() => undefined);
       await waitForLockWait();
     });
 
     await expect(save).rejects.toMatchObject({ code: "NOT_FOUND" });
   }
-  expect(await getDb().post.count({ where: { status: "published" } })).toBe(0);
+  expect(
+    await getDb().post.count({
+      where: { OR: [{ status: "published" }, { slug: "renamed-meanwhile" }] },
+    }),
+  ).toBe(0);
 });
 
 test("lists posts outside the trash, most recently changed first", async () => {
