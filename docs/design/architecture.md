@@ -59,8 +59,8 @@ All application code lives under `src/`.
 
 Dependencies point inward toward domain logic. Only `server/` imports Prisma,
 and only through `server/db`. A domain never imports another domain's
-internals, only its `index.ts`. Nothing outside `app/` imports Next.js
-request APIs.
+internals, only its `index.ts`. Nothing outside `app/` and the root hooks
+(`proxy.ts`, `instrumentation.ts`) imports Next.js request APIs.
 
 ## Data model
 

@@ -46,8 +46,9 @@ Copy `.env.example` to `.env` before running Compose. Node 24 is pinned in
   `{ "error": { "code", "message" } }`; MCP tools turn errors into plain
   sentences.
 - Validate external input with zod at the boundary; trust types inside.
-- Read configuration only through `src/server/config`; add every new variable
-  to `.env.example`.
+- The web server reads configuration only through `src/server/config`; add
+  every new variable to `.env.example`. The MCP server reads `BLOG_URL` and
+  `BLOG_API_TOKEN` from the assistant's configuration, not from `.env`.
 - Tests sit next to the code as `*.test.ts`; database tests use the shared
   Testcontainers Postgres, never mocks of Prisma. Every test starts with empty
   tables (`src/server/db/testing/setup.ts`); create the data a test needs in
