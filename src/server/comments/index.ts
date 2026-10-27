@@ -92,3 +92,93 @@ function validate(value: string, name: string, maxLength: number): string {
   }
   return trimmed;
 }
+
+export type PublicComment = {
+  id: string;
+  nickname: string;
+  message: string;
+  createdAt: Date;
+};
+export type ModeratedComment = PublicComment & {
+  post: { id: string; title: string };
+};
+export type CommentStatus = "pending" | "approved";
+
+const publicCommentFields = {
+  id: true,
+  nickname: true,
+  message: true,
+  createdAt: true,
+} as const;
+
+// A published post's approved comments, oldest first. The post is found
+// through the `posts` published-post query, so comments of drafts and
+// trashed posts are never public.
+export async function listPublicComments(
+  language: Language,
+  slug: string,
+): Promise<PublicComment[]> {
+  const postId = await getPublishedPostId(language, slug);
+  return getDb().comment.findMany({
+    where: { postId, status: "approved" },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    select: publicCommentFields,
+  });
+}
+
+// The comments with the given status on posts outside the trash, for the
+// owner: the pending queue oldest first, approved comments newest first.
+// Comments of a trashed post wait with it and return when it is restored.
+export async function listCommentsForModeration(
+  status: CommentStatus,
+): Promise<ModeratedComment[]> {
+  const order = status === "pending" ? "asc" : "desc";
+  return getDb().comment.findMany({
+    where: { status, post: { deletedAt: null } },
+    orderBy: [{ createdAt: order }, { id: order }],
+    select: {
+      ...publicCommentFields,
+      post: { select: { id: true, title: true } },
+    },
+  });
+}
+
+// How many comments on posts outside the trash await moderation.
+export async function countPendingComments(): Promise<number> {
+  return getDb().comment.count({
+    where: { status: "pending", post: { deletedAt: null } },
+  });
+}
+
+// Approves a pending comment; it then shows under its post while the post is
+// published.
+export async function approveComment(id: string): Promise<void> {
+  const { count } = await getDb().comment.updateMany({
+    where: { id, status: "pending" },
+    data: { status: "approved" },
+  });
+  if (count === 0) commentNotFound();
+}
+
+// Rejects a pending comment: it is deleted and never shown.
+export async function rejectComment(id: string): Promise<void> {
+  await deleteComment(id, "pending");
+}
+
+// Removes an approved comment: it is deleted and leaves its post.
+export async function removeComment(id: string): Promise<void> {
+  await deleteComment(id, "approved");
+}
+
+// Deletes a comment only in the status the owner saw, so a stale page cannot
+// reject a comment that was approved in the meantime.
+async function deleteComment(id: string, status: CommentStatus): Promise<void> {
+  const { count } = await getDb().comment.deleteMany({
+    where: { id, status },
+  });
+  if (count === 0) commentNotFound();
+}
+
+function commentNotFound(): never {
+  throw new DomainError("NOT_FOUND", "This comment does not exist.");
+}

@@ -1,0 +1,10 @@
+/* Layout glue: the pending queue above the approved comments. */
+.section + .section {
+  margin-top: var(--space-6);
+}
+
+.heading {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-lg);
+  font-weight: 600;
+}

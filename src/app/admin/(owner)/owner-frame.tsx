@@ -8,6 +8,7 @@ type Section = React.ComponentProps<typeof AdminFrame>["current"];
 // The section of each admin page other than Posts, which also holds editing.
 const sections: Record<string, Section> = {
   "/admin/posts/new": "new-post",
+  "/admin/comments": "comments",
   "/admin/trash": "trash",
   "/admin/tokens": "tokens",
 };

@@ -22,6 +22,7 @@
 .nav {
   display: flex;
   flex: 1;
+  flex-wrap: wrap;
   gap: var(--space-1);
 }
 
@@ -41,6 +42,32 @@
   color: var(--color-bar-text);
 }
 
+/* The number of comments awaiting moderation, beside Comments. */
+.count {
+  display: inline-block;
+  min-width: 1.25rem;
+  margin-left: var(--space-2);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-fill);
+  color: var(--color-on-accent);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1.25rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Read by screen readers, not shown. */
+.hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .signOut {
   border: 0;
   background: none;
@@ -55,7 +82,14 @@
 
 @media (max-width: 639px) {
   .bar {
+    justify-content: space-between;
     padding: var(--space-2) var(--space-4);
+  }
+
+  /* Brand and sign-out share the first row; the sections wrap below. */
+  .nav {
+    order: 1;
+    flex-basis: 100%;
   }
 
   .work {
