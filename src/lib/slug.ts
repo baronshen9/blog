@@ -11,3 +11,9 @@ export function slugify(text: string): string {
     .slice(0, maxLength)
     .replace(/^-+|-+$/g, "");
 }
+
+// Lowercase Latin letters and digits joined by single hyphens. No length
+// limit: a generated slug may exceed slugify's by a collision suffix.
+export function isSlug(text: string): boolean {
+  return /^[a-z0-9]+(-[a-z0-9]+)*$/.test(text);
+}

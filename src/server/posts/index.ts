@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { excerpt, slugify } from "@/lib";
+import { excerpt, isSlug, slugify } from "@/lib";
 import { getDb } from "@/server/db";
 import { DomainError } from "@/server/errors";
 
@@ -81,17 +81,45 @@ export async function createDraft({
   throw new DomainError("CONFLICT", "No free slug was found; save again.");
 }
 
-// Changes the content, and the status when one is given; the slug never
-// changes. The first publication sets publishedAt, which unpublishing and
-// publishing again keep; only a publication writes it, and only while it is
-// empty, so concurrent saves cannot lose or move it.
+// Changes the content, the status when one is given, and the slug when one is
+// given. The slug changes only while the post has never been published; giving
+// a published post its current slug is not a change. The first publication
+// sets publishedAt, which unpublishing and publishing again keep; only a
+// publication writes it, and only while it is empty, so concurrent saves
+// cannot lose or move it. A save that changes the slug and publishes publishes
+// the new slug.
 export async function updatePost(
   id: string,
-  { status, ...content }: PostContent & { status?: PostStatus },
+  {
+    status,
+    slug,
+    ...content
+  }: PostContent & { status?: PostStatus; slug?: string },
 ): Promise<Post> {
   const data = { ...validate(content), status };
+  const newSlug = slug === undefined ? undefined : validateSlug(slug);
   await getPost(id);
   return getDb().$transaction(async (tx) => {
+    if (newSlug !== undefined) {
+      const { count } = await tx.post
+        .updateMany({
+          where: { id, OR: [{ publishedAt: null }, { slug: newSlug }] },
+          data: { slug: newSlug },
+        })
+        .catch((error: unknown) => {
+          if (!isUniqueViolation(error)) throw error;
+          throw new DomainError(
+            "CONFLICT",
+            `Another post in this language already uses the slug "${newSlug}"; it may be in the trash.`,
+          );
+        });
+      if (count === 0) {
+        throw new DomainError(
+          "CONFLICT",
+          "The slug cannot change after the post's first publication.",
+        );
+      }
+    }
     if (status === "published") {
       await tx.post.updateMany({
         where: { id, publishedAt: null },
@@ -231,6 +259,17 @@ function validate({ title, bodyMarkdown }: PostContent): PostContent {
   const trimmed = title.trim();
   if (!trimmed) throw new DomainError("VALIDATION", "Enter a title.");
   return { title: trimmed, bodyMarkdown };
+}
+
+function validateSlug(slug: string): string {
+  const trimmed = slug.trim();
+  if (!isSlug(trimmed)) {
+    throw new DomainError(
+      "VALIDATION",
+      "Use only lowercase Latin letters, digits, and single hyphens between them for the slug.",
+    );
+  }
+  return trimmed;
 }
 
 // Slugs are unique per language, trashed posts included; a taken slug gets

@@ -18,6 +18,8 @@ const editorFields = z.object({
   id: z.uuid().optional(),
   language: z.enum(languages),
   title: z.string(),
+  // Sent only while the post's slug can still change.
+  slug: z.string().optional(),
   bodyMarkdown: z.string(),
   intent: z.enum(["save", "publish", "unpublish", "preview", "trash"]),
 });
@@ -42,9 +44,10 @@ const notices = {
 };
 
 // Previews the body, or saves the post: a new one as a draft, then opened in
-// its editor; an existing one keeps its language, and publishing or
-// unpublishing also changes its status. Trashing an existing post discards
-// unsaved changes and returns to the post list.
+// its editor; an existing one keeps its language, takes the slug when the
+// editor sends one, and publishing or unpublishing also changes its status.
+// Trashing an existing post discards unsaved changes and returns to the post
+// list.
 export async function editPostAction(
   _previous: EditorState,
   form: FormData,
@@ -52,7 +55,7 @@ export async function editPostAction(
   await requireOwner();
   const input = editorFields.safeParse(Object.fromEntries(form));
   if (!input.success) return { error: "The form is invalid; reload the page." };
-  const { intent, id, language, title, bodyMarkdown } = input.data;
+  const { intent, id, language, title, slug, bodyMarkdown } = input.data;
 
   if (intent === "preview") {
     return { preview: await renderMarkdown(bodyMarkdown) };
@@ -68,6 +71,7 @@ export async function editPostAction(
     } else {
       const post = await updatePost(id, {
         title,
+        slug,
         bodyMarkdown,
         status: statusChanges[intent],
       });
