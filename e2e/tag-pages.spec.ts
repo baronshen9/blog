@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { createToken, marker, signIn } from "./owner";
+import { createToken, homeCard, marker, signIn } from "./owner";
 
 test("readers browse published posts by their Chinese and English tags", async ({
   page,
@@ -36,7 +36,7 @@ test("readers browse published posts by their Chinese and English tags", async (
     .filter({ hasText: `Tagged older ${stamp}` });
 
   // A card's tag opens the tag page, not the post the card links to.
-  await page.goto("/en");
+  await homeCard(page, `Tagged older ${stamp}`);
   await expect(
     card.getByRole("list", { name: "Tags" }).getByRole("listitem"),
   ).toHaveText([`#${english}`, `#${chinese}`]);

@@ -14,7 +14,7 @@ export const password = env.OWNER_PASSWORD ?? "";
 // A marker that names one journey's data. Journeys run in parallel against one
 // stack, so it is random: two journeys can start in the same millisecond.
 export function marker(): string {
-  return randomUUID().slice(0, 8);
+  return randomUUID().replaceAll("-", "").slice(0, 12);
 }
 
 export async function signIn(page: Page): Promise<void> {
@@ -56,4 +56,17 @@ export async function connectMcp(baseURL: string | undefined, secret: string) {
     return content?.type === "text" ? content.text : "";
   };
   return { call, close: () => client.close() };
+}
+
+// Opens the home page that lists the post titled `title` and returns its card,
+// paging past newer posts that parallel journeys publish meanwhile. When no
+// page lists it, the card is empty.
+export async function homeCard(page: Page, title: string) {
+  const card = page
+    .getByRole("article")
+    .filter({ has: page.getByRole("heading", { name: title }) });
+  for (let n = 1; ; n++) {
+    const response = await page.goto(n === 1 ? "/en" : `/en?page=${n}`);
+    if (response?.status() === 404 || (await card.count()) > 0) return card;
+  }
 }
