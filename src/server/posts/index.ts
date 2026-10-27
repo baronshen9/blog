@@ -89,7 +89,8 @@ export async function createDraft({
 // sets publishedAt, which unpublishing and publishing again keep; only a
 // publication writes it, and only while it is empty, so concurrent saves
 // cannot lose or move it. A save that changes the slug and publishes publishes
-// the new slug.
+// the new slug. The first write applies only outside the trash and locks the
+// post, so a post trashed or deleted meanwhile is not found rather than changed.
 export async function updatePost(
   id: string,
   {
@@ -105,8 +106,12 @@ export async function updatePost(
     status,
   };
   const newSlug = slug === undefined ? undefined : validateSlug(slug);
-  await getPost(id);
   return getDb().$transaction(async (tx) => {
+    const { count } = await tx.post.updateMany({
+      where: { id, deletedAt: null },
+      data,
+    });
+    if (count === 0) notFound();
     if (newSlug !== undefined) {
       const { count } = await tx.post
         .updateMany({
@@ -133,7 +138,7 @@ export async function updatePost(
         data: { publishedAt: new Date() },
       });
     }
-    return tx.post.update({ where: { id }, data, select: postFields });
+    return tx.post.findUniqueOrThrow({ where: { id }, select: postFields });
   });
 }
 
