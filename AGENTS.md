@@ -27,7 +27,7 @@ Copy `.env.example` to `.env` before running Compose. Node 24 is pinned in
 | --- | --- |
 | `src/app/` | Next.js routes only: `[locale]/` public pages, `admin/` owner admin, `api/v1/` token API |
 | `src/proxy.ts`, `src/instrumentation.ts` | Next.js root hooks: redirect signed-out admin requests, send unknown languages and any malformed percent-encoding to the framed 404 at `/missing` (exclude new top-level routes in the proxy matcher); create the owner at server start |
-| `src/server/<domain>/` | Domain services and persistence (`posts`, `auth`, `tokens`, `health`, `media`, later `comments`); public surface is `index.ts` |
+| `src/server/<domain>/` | Domain services and persistence (`posts`, `auth`, `tokens`, `health`, `media`, `comments`); public surface is `index.ts` |
 | `src/server/errors/` | `DomainError`, shared by all domains |
 | `src/server/db/` | The Prisma client (generated into `generated/`, Git-ignored); the only place it is created |
 | `src/contract/` | zod schemas and types of the HTTP API, shared with the MCP server |
