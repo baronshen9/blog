@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { signIn } from "./owner";
+import { marker, signIn } from "./owner";
 
 test("the owner trashes a published post, restores it as a draft, and deletes it for good", async ({
   page,
 }) => {
-  const stamp = Date.now();
+  const stamp = marker();
   const title = `Trash smoke ${stamp}`;
   const url = `/en/posts/trash-smoke-${stamp}`;
   const main = page.getByRole("main");

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { parseEnv } from "node:util";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -9,6 +10,12 @@ import { expect, type Page } from "@playwright/test";
 const env = parseEnv(readFileSync(".env.example", "utf8"));
 export const username = env.OWNER_USERNAME ?? "";
 export const password = env.OWNER_PASSWORD ?? "";
+
+// A marker that names one journey's data. Journeys run in parallel against one
+// stack, so it is random: two journeys can start in the same millisecond.
+export function marker(): string {
+  return randomUUID().slice(0, 8);
+}
 
 export async function signIn(page: Page): Promise<void> {
   await page.goto("/admin/sign-in");

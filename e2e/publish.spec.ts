@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { signIn } from "./owner";
+import { marker, signIn } from "./owner";
 
 async function expectNotFound(page: Page, url: string) {
   const response = await page.goto(url);
@@ -36,7 +36,7 @@ async function expectFitsPhone(page: Page, url: string) {
 test("the owner publishes a draft that readers open until it is unpublished", async ({
   page,
 }) => {
-  const stamp = Date.now();
+  const stamp = marker();
   const title = `Published smoke ${stamp}`;
   const url = `/en/posts/published-smoke-${stamp}`;
   const main = page.getByRole("main");
@@ -107,7 +107,7 @@ test("the owner publishes a draft that readers open until it is unpublished", as
 test("an unknown post, page, or language URL is not found", async ({
   page,
 }) => {
-  await expectNotFound(page, `/zh/posts/missing-${Date.now()}`);
+  await expectNotFound(page, `/zh/posts/missing-${marker()}`);
   await expectNotFound(page, "/en/no/such/page");
   await expectNotFound(page, "/fr");
   await expectNotFound(page, "/fr/posts/anything");
