@@ -63,8 +63,9 @@ const postFields = {
 } as const;
 
 // A new post is a draft in its own translation group, with the given tags or
-// none. Its slug comes from the title, or is a short random id when the title has no Latin characters; when
-// a concurrent save takes the same slug first, the next free one is used.
+// none. Its slug comes from the title, or is a short random id when the title
+// has no Latin characters; when a concurrent save takes the same slug first,
+// the next free one is used.
 // Every round of colliding saves lets at least one through, so the bound is
 // reached only by an implausible number of simultaneous saves.
 export async function createDraft({
