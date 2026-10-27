@@ -19,8 +19,17 @@ const imageTypes = {
 type ImageType = keyof typeof imageTypes;
 
 // The largest image the blog stores. The Server Action request limit in
-// next.config.ts leaves room above it for the form's encoding.
+// next.config.ts leaves room above it for the form's encoding; the API and the
+// MCP server read it from here to refuse larger files before buffering them.
 export const maxImageBytes = 5 * 1024 * 1024;
+
+// The refusal of an image of `byteSize` bytes, larger than the limit.
+export function imageTooLarge(byteSize: number): DomainError {
+  return new DomainError(
+    "VALIDATION",
+    `This file is ${megabytes(byteSize)}; images can be at most ${megabytes(maxImageBytes)}.`,
+  );
+}
 
 // The content types an upload control may offer to pick from.
 export const acceptedImageTypes = Object.values(imageTypes).map(
@@ -41,12 +50,7 @@ export type Image = {
 // with the reason. The file is written first, so a stored row always has its
 // file.
 export async function uploadImage(bytes: Uint8Array): Promise<Image> {
-  if (bytes.byteLength > maxImageBytes) {
-    throw new DomainError(
-      "VALIDATION",
-      `This file is ${megabytes(bytes.byteLength)}; images can be at most ${megabytes(maxImageBytes)}.`,
-    );
-  }
+  if (bytes.byteLength > maxImageBytes) throw imageTooLarge(bytes.byteLength);
   const type = await decodedType(bytes);
   if (!type) {
     throw new DomainError(

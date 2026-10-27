@@ -34,8 +34,8 @@ export async function createToken(page: Page, name: string): Promise<string> {
 }
 
 // Starts the MCP server the way Claude Code and Codex start it (see the
-// README) with the given token. `call` expects the tool to succeed and returns
-// its text.
+// README) with the given token. `call` expects the tool to succeed and
+// `refusal` expects it to fail; both return its text.
 export async function connectMcp(baseURL: string | undefined, secret: string) {
   const client = new Client({ name: "smoke", version: "1.0.0" });
   await client.connect(
@@ -46,16 +46,26 @@ export async function connectMcp(baseURL: string | undefined, secret: string) {
       stderr: "inherit",
     }),
   );
-  const call = async (name: string, args: Record<string, unknown>) => {
+  const run = async (
+    name: string,
+    args: Record<string, unknown>,
+    isError: boolean,
+  ) => {
     const result = (await client.callTool({
       name,
       arguments: args,
     })) as CallToolResult;
     const [content] = result.content;
-    expect(result.isError ?? false).toBe(false);
+    expect(result.isError ?? false).toBe(isError);
     return content?.type === "text" ? content.text : "";
   };
-  return { call, close: () => client.close() };
+  return {
+    call: (name: string, args: Record<string, unknown>) =>
+      run(name, args, false),
+    refusal: (name: string, args: Record<string, unknown>) =>
+      run(name, args, true),
+    close: () => client.close(),
+  };
 }
 
 // Opens the home page that lists the post titled `title` and returns its card,

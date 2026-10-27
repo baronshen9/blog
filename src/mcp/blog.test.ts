@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, truncate, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -24,7 +24,7 @@ const post: PostResponse = {
 
 // A connected client whose server answers every API call with `answer`.
 async function connect(
-  answer: () => Promise<Response>,
+  answer: (input: string | URL | Request) => Promise<Response>,
   config: Partial<BlogConfig> = {},
 ) {
   const fetch = vi.fn<typeof globalThis.fetch>(answer);
@@ -202,6 +202,13 @@ const uploaded = {
   markdown: "![Figure 1](/media/6f1c2a4e-8b1d-4c3e-9f2a-1b2c3d4e5f60.png)",
 };
 
+// The blog's image API: the size limit, and `upload` for the upload itself.
+const imageApi =
+  (upload: () => Promise<Response>) => (input: string | URL | Request) =>
+    String(input).endsWith("/api/v1/images/limits")
+      ? json({ maxBytes: 5 * 1024 * 1024 })
+      : upload();
+
 test.each([
   ["the file's name", {}, "Figure 1"],
   ["the given description", { alt: "A chart" }, "A chart"],
@@ -210,7 +217,7 @@ test.each([
   async (_, args, alt) => {
     const bytes = new Uint8Array([137, 80, 78, 71]);
     const { file } = await localFile("Figure 1.png", bytes);
-    const { call, fetch } = await connect(() => json(uploaded, 201));
+    const { call, fetch } = await connect(imageApi(() => json(uploaded, 201)));
 
     const result = await call("upload_image", { file, ...args });
 
@@ -218,7 +225,10 @@ test.each([
       isError: false,
       text: JSON.stringify(uploaded, null, 2),
     });
-    const [endpoint, init] = fetch.mock.calls[0] ?? [];
+    expect(String(fetch.mock.calls[0]?.[0])).toBe(
+      `${url}/api/v1/images/limits`,
+    );
+    const [endpoint, init] = fetch.mock.calls[1] ?? [];
     expect(String(endpoint)).toBe(`${url}/api/v1/images`);
     expect(init?.method).toBe("POST");
     expect(JSON.parse(String(init?.body))).toEqual({
@@ -231,16 +241,31 @@ test.each([
 test("upload_image reports a file the blog refuses in plain language", async () => {
   const { file } = await localFile("notes.txt", new Uint8Array([1, 2, 3]));
   const { call } = await connect(
-    apiError(
-      400,
-      "VALIDATION",
-      "This file is not an accepted image; upload a PNG, JPEG, GIF, or WebP file.",
+    imageApi(
+      apiError(
+        400,
+        "VALIDATION",
+        "This file is not an accepted image; upload a PNG, JPEG, GIF, or WebP file.",
+      ),
     ),
   );
   expect(await call("upload_image", { file })).toEqual({
     isError: true,
     text: "The blog did not accept the request: This file is not an accepted image; upload a PNG, JPEG, GIF, or WebP file.",
   });
+});
+
+test("upload_image refuses a file over the blog's limit from its size, without sending it", async () => {
+  // A sparse file: 3 GB long without taking the space or being read.
+  const { file } = await localFile("huge.png", new Uint8Array());
+  await truncate(file, 3 * 1024 ** 3);
+  const { call, fetch } = await connect(imageApi(() => json(uploaded, 201)));
+
+  expect(await call("upload_image", { file })).toEqual({
+    isError: true,
+    text: "This file is 3072 MB; images can be at most 5 MB.",
+  });
+  expect(fetch).toHaveBeenCalledTimes(1);
 });
 
 test("upload_image reports a local file it cannot read without calling the blog", async () => {
@@ -255,6 +280,10 @@ test("upload_image reports a local file it cannot read without calling the blog"
   expect(await call("upload_image", { file: dir })).toEqual({
     isError: true,
     text: `${dir} is a folder. Give the path of an image file.`,
+  });
+  expect(await call("upload_image", { file: "/dev/null" })).toEqual({
+    isError: true,
+    text: "/dev/null is not a regular file. Give the path of an image file.",
   });
   expect(await call("upload_image", { file: "figure.png" })).toEqual({
     isError: true,

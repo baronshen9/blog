@@ -160,9 +160,15 @@ replaces all of a post's tags.
    an image in a draft is reachable by its unguessable path, and removing it
    from a post leaves the file.
 
-The Server Action request limit (`next.config.ts`) is 6 MB, room for an
-image at the limit plus the form's encoding. The upload control refuses larger
-images before sending them; the service refuses them for every caller.
+The size limit is defined once, in the `media` service, which refuses larger
+images for every caller. No caller buffers a larger file first: the Server
+Action request limit (`next.config.ts`) is 6 MB, room for an image at the limit
+plus the form's encoding, and the upload control refuses larger images before
+sending them. `POST /api/v1/images` refuses a body larger than a Base64-encoded
+image at the limit plus room for its description, from its declared length or
+as soon as more arrives, before parsing it. The `upload_image` tool reads the
+limit from `GET /api/v1/images/limits` and compares the local file's size with
+it before reading the file; it accepts regular files only.
 
 **Reader comments (M4)**
 
