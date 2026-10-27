@@ -2,12 +2,13 @@ import sharp from "sharp";
 import { expect, test } from "vitest";
 import {
   errorResponse,
+  imageLimitsResponse,
   imageResponse,
   postListResponse,
   postResponse,
 } from "@/contract";
 import { ensureOwner, signIn } from "@/server/auth";
-import { readImage } from "@/server/media";
+import { maxImageBytes, readImage } from "@/server/media";
 import {
   createDraft,
   getPost,
@@ -21,6 +22,7 @@ import { sessionCookie } from "@/app/admin/session-cookie";
 import * as postsRoute from "./posts/route";
 import * as postRoute from "./posts/[id]/route";
 import * as imagesRoute from "./images/route";
+import * as imageLimitsRoute from "./images/limits/route";
 
 type Options = { headers?: Record<string, string>; body?: unknown };
 
@@ -375,6 +377,64 @@ test.each([
   );
 
   expect(error).toContain(message);
+});
+
+test("refuses an image upload by its declared length before reading it", async () => {
+  const headers = await bearer();
+
+  const error = await expectError(
+    await uploadImage({
+      headers: { ...headers, "content-length": String(100_000_000) },
+      body: "{}",
+    }),
+    400,
+    "VALIDATION",
+  );
+
+  expect(error).toBe("This file is 71.5 MB; images can be at most 5 MB.");
+});
+
+test("stops reading an image upload of undeclared length past the limit", async () => {
+  const headers = await bearer();
+  let pulled = 0;
+  const endless = new ReadableStream<Uint8Array>({
+    pull: (controller) => {
+      pulled += 1;
+      controller.enqueue(new Uint8Array(1024 * 1024));
+    },
+  });
+
+  const error = await expectError(
+    await imagesRoute.POST(
+      new Request("http://localhost/api/v1/images", {
+        method: "POST",
+        headers,
+        body: endless,
+        duplex: "half",
+      } as RequestInit),
+    ),
+    400,
+    "VALIDATION",
+  );
+
+  expect(error).toContain("images can be at most 5 MB.");
+  expect(pulled).toBeLessThan(12);
+});
+
+test("tells a client the image size limit", async () => {
+  const response = await imageLimitsRoute.GET(
+    request("GET", "/images/limits", { headers: await bearer() }),
+  );
+
+  expect(response.status).toBe(200);
+  expect(imageLimitsResponse.parse(await response.json())).toEqual({
+    maxBytes: maxImageBytes,
+  });
+  await expectError(
+    await imageLimitsRoute.GET(request("GET", "/images/limits")),
+    401,
+    "UNAUTHORIZED",
+  );
 });
 
 test("refuses an image upload without a token", async () => {

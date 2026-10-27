@@ -82,6 +82,12 @@ export const imageResponse = z.object({
   markdown: z.string(),
 });
 
+// GET /images/limits: the largest image, in bytes, that POST /images accepts,
+// so a client can refuse a larger file before reading it.
+export const imageLimitsResponse = z.object({
+  maxBytes: z.number().int().positive(),
+});
+
 // Every failed request responds with this shape. INTERNAL is an unexpected
 // failure on the server; its message says nothing about the cause.
 export const errorCodes = [
@@ -101,5 +107,6 @@ export type UpdatePostRequest = z.infer<typeof updatePostRequest>;
 export type PostResponse = z.infer<typeof postResponse>;
 export type PostListResponse = z.infer<typeof postListResponse>;
 export type ImageResponse = z.infer<typeof imageResponse>;
+export type ImageLimitsResponse = z.infer<typeof imageLimitsResponse>;
 export type ErrorCode = (typeof errorCodes)[number];
 export type ErrorResponse = z.infer<typeof errorResponse>;
