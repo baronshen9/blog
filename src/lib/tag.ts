@@ -2,11 +2,14 @@
 // unified (full-width letters and punctuation become their usual forms),
 // lowercase, and every run of spaces, underscores, and hyphens one hyphen,
 // with none at either end. "Next JS", "next_js", and "ＮＥＸＴ－ＪＳ" are all
-// "next-js".
+// "next-js". Lowercasing can leave a decomposed sequence that composes, so
+// the text is normalized again afterwards; normalizing a canonical name
+// returns it unchanged.
 export function normalizeTag(text: string): string {
   return text
     .normalize("NFKC")
     .toLowerCase()
+    .normalize("NFKC")
     .replace(/[\s_-]+/gu, "-")
     .replace(/^-|-$/g, "");
 }

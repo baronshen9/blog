@@ -108,12 +108,12 @@ export function PostEditor({
         tags={
           <TagField
             // Each save replaces the field with the tags as the server stored
-            // them, normalized.
+            // them, normalized, so the field is read-only until it ends.
             key={post?.savedAt}
             label="Tags"
             name="tags"
             defaultValue={initial.tags}
-            disabled={creating}
+            disabled={pending}
           />
         }
         markdown={

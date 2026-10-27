@@ -9,9 +9,19 @@ test.each([
   ["ＮＥＸＴ－ＪＳ", "next-js"],
   ["数据库", "数据库"],
   ["-edge-", "edge"],
+  ["J\u030c", "\u01f0"],
+  ["\u210c", "h"],
 ])("normalizeTag(%j) is %j", (text, tag) => {
   expect(normalizeTag(text)).toBe(tag);
 });
+
+test.each(["J\u030c", "\u01f0", "\u210c", "Next JS", "数据库"])(
+  "normalizeTag(%j) is stable",
+  (text) => {
+    const tag = normalizeTag(text);
+    expect(normalizeTag(tag)).toBe(tag);
+  },
+);
 
 test.each([
   ["typescript", true],

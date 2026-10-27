@@ -113,13 +113,22 @@ test("changes only the fields given", async () => {
 test("normalizes tags and keeps spellings that normalize alike as one tag", async () => {
   const post = await createDraft({
     ...draft,
-    tags: ["TypeScript", " typescript ", "Next JS", "next_js", " ", "数据库"],
+    tags: [
+      "TypeScript",
+      " typescript ",
+      "Next JS",
+      "next_js",
+      " ",
+      "数据库",
+      "J\u030c",
+      "\u01f0",
+    ],
   });
-  expect(post.tags).toEqual(["typescript", "next-js", "数据库"]);
+  expect(post.tags).toEqual(["typescript", "next-js", "数据库", "\u01f0"]);
 
   await updatePost(post.id, { title: "Renamed" });
   await expect(getPost(post.id)).resolves.toMatchObject({
-    tags: ["typescript", "next-js", "数据库"],
+    tags: ["typescript", "next-js", "数据库", "\u01f0"],
   });
 
   await updatePost(post.id, { tags: ["Postgres", "TYPESCRIPT"] });
