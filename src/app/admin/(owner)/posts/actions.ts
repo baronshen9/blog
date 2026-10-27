@@ -44,10 +44,10 @@ const notices = {
 };
 
 // Previews the body, or saves the post: a new one as a draft, then opened in
-// its editor; an existing one keeps its language, and publishing or
-// unpublishing also changes its status, and a slug, when sent, changes it.
-// Trashing an existing post discards
-// unsaved changes and returns to the post list.
+// its editor; an existing one keeps its language, takes the slug when the
+// editor sends one, and publishing or unpublishing also changes its status.
+// Trashing an existing post discards unsaved changes and returns to the post
+// list.
 export async function editPostAction(
   _previous: EditorState,
   form: FormData,
