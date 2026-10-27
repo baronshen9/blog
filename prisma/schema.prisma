@@ -50,3 +50,12 @@ model Post {
   @@unique([language, slug])
   @@unique([translationGroupId, language])
 }
+
+model ApiToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  name       String
+  tokenHash  String    @unique
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+}

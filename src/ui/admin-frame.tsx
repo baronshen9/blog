@@ -5,6 +5,7 @@ const sections = [
   { id: "posts", href: "/admin", label: "Posts" },
   { id: "new-post", href: "/admin/posts/new", label: "New post" },
   { id: "trash", href: "/admin/trash", label: "Trash" },
+  { id: "tokens", href: "/admin/tokens", label: "Tokens" },
 ] as const;
 
 type AdminSection = (typeof sections)[number]["id"];

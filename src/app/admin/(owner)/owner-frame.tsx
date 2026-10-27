@@ -5,10 +5,11 @@ import { AdminFrame } from "@/ui";
 
 type Section = React.ComponentProps<typeof AdminFrame>["current"];
 
-// Pages whose section is not Posts; editing a post belongs to Posts.
+// The section of each admin page other than Posts, which also holds editing.
 const sections: Record<string, Section> = {
   "/admin/posts/new": "new-post",
   "/admin/trash": "trash",
+  "/admin/tokens": "tokens",
 };
 
 // The admin frame with the section of the current page marked.

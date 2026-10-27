@@ -1,0 +1,12 @@
+/* Layout glue: the creation form keeps a readable width above the list. */
+.create {
+  max-width: 36rem;
+  margin-bottom: var(--space-6);
+}
+
+.secret {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}

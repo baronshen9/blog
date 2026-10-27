@@ -172,7 +172,8 @@ English.
 - **Tokens:** `src/ui/tokens.css` defines every color, spacing step, radius,
   font stack, and font size as a CSS custom property, with a dark set under
   `@media (prefers-color-scheme: dark)`. Components use tokens only: no raw
-  color values, no inline styles.
+  color values, no inline styles. The one exception is Shiki's token-based
+  inline colors in rendered code blocks ([0005](../decisions/0005-css-modules-and-design-tokens.md)).
 - **Fonts:** system stacks only — sans (`-apple-system`, `PingFang SC`,
   `Segoe UI`, `Microsoft YaHei`, sans-serif) for text and headings, and a
   monospace stack for code.
@@ -187,7 +188,8 @@ English.
   `Prose` (rendered Markdown, including code, quotes, lists, and tables),
   `Pager`, `Button` and `ButtonLink`, `StatusBadge`, `Field` (labelled inputs
   and errors), `Notice` (a form's error or success message), `PostTable` (the
-  admin post list), `TrashTable` (the admin trash), and `EditorLayout` (Markdown and preview side by side,
+  admin post list), `TrashTable` (the admin trash), `TokenTable` (the admin API
+  token list), and `EditorLayout` (Markdown and preview side by side,
   stacked below 900 px).
 - **Code blocks:** Shiki renders with one dark theme in both color schemes, so
   code looks the same everywhere.
@@ -240,7 +242,7 @@ host ([0003](../decisions/0003-mcp-as-host-stdio-client.md)).
 | Service | Image | Details |
 | --- | --- | --- |
 | `db` | `postgres:18` | Volume `pgdata`; health check with `pg_isready`; published on `127.0.0.1:5432` (`DB_PORT`) for `npm run dev` |
-| `web` | Built from `Dockerfile` (Next.js standalone output on Node 24) | Waits for `db`; on start runs `prisma migrate deploy`, ensures the owner, then serves on `127.0.0.1:3000` (`WEB_PORT`); volume `media` for uploads |
+| `web` | Built from `Dockerfile` (Next.js standalone output on Node 24) | Waits for `db`; on start runs `prisma migrate deploy`, ensures the owner, then serves on `127.0.0.1:3000` (`WEB_PORT`); a `media` volume for uploads is added in M3 |
 
 `docker compose up --build` from a fresh clone with `.env` copied from
 `.env.example` runs the complete blog. There is no seed content; the owner
