@@ -149,8 +149,10 @@ A later milestone adds `Comment` with its rate-limit records (owned by
 2. The service accepts PNG, JPEG, GIF, and WebP up to 5 MB. It decodes the
    file with sharp to learn its format, rather than trusting its name or
    declared type, so truncated or corrupt files are refused too. Every frame
-   of an animation is decoded, and a GIF must also end with its trailer,
-   because the decoder accepts a truncated later frame. SVG is refused
+   of an animation is decoded, and a GIF's blocks are also checked to be
+   whole, with the trailer after them and every frame's data holding all its
+   pixels, because the decoder shows a frame whose data ends early with the
+   rest blank. SVG is refused
    because it can carry scripts. Every refusal names the reason.
 3. The service writes the file, then its `Image` row, and returns its path;
    the editor inserts `![<file name>](/media/<id>.<extension>)` at the cursor

@@ -36,6 +36,27 @@ function animation(format: "gif" | "webp"): Promise<Buffer> {
     .toBuffer();
 }
 
+// The GIF with its last frame's compressed data removed and its block
+// structure kept whole, so only the frame's pixel count shows the damage.
+function withEmptyLastFrame(gif: Buffer): Buffer {
+  const byte = (at: number) => gif[at] ?? 0;
+  const colorTable = (packed: number) =>
+    packed & 0x80 ? 3 * 2 ** ((packed & 0x07) + 1) : 0;
+  let at = 13 + colorTable(byte(10));
+  let lastData = 0;
+  while (byte(at) !== 0x3b) {
+    if (byte(at) === 0x2c) {
+      at += 10 + colorTable(byte(at + 9)) + 1;
+      lastData = at;
+    } else {
+      at += 2;
+    }
+    while (byte(at) !== 0) at += 1 + byte(at);
+    at += 1;
+  }
+  return Buffer.concat([gif.subarray(0, lastData), Buffer.from([0x00, 0x3b])]);
+}
+
 const notAnImage = new DomainError(
   "VALIDATION",
   "This file is not an accepted image; upload a PNG, JPEG, GIF, or WebP file.",
@@ -110,7 +131,10 @@ test("refuses animations whose later frame is damaged", async () => {
     );
     damaged.push(corrupt);
     if (format === "gif") {
-      damaged.push(bytes.subarray(0, Math.floor(bytes.byteLength * 0.8)));
+      damaged.push(
+        bytes.subarray(0, Math.floor(bytes.byteLength * 0.8)),
+        withEmptyLastFrame(bytes),
+      );
     }
   }
   for (const bytes of damaged) {
