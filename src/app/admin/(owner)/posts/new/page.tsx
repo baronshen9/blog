@@ -13,6 +13,7 @@ export default async function NewPostPage() {
         initial={{
           title: "",
           bodyMarkdown: "",
+          tags: [],
           language: getConfig().SITE_DEFAULT_LANGUAGE,
         }}
       />

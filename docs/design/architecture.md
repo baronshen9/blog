@@ -74,7 +74,7 @@ merge.
 | `Owner` | id, username, passwordHash (argon2id), createdAt | Exactly one row, created at startup from `OWNER_USERNAME` and `OWNER_PASSWORD` when absent; never overwritten from the environment |
 | `Session` | id, tokenHash, ownerId, createdAt, expiresAt | Cookie (path `/admin`) holds a random token; only its SHA-256 hash is stored. Sessions last 30 days; signing out deletes the row |
 | `ApiToken` | id, name, tokenHash, createdAt, lastUsedAt, revokedAt | Secret shown once at creation; only its SHA-256 hash is stored. Revoked tokens are kept for the list but refused |
-| `Post` | id, translationGroupId, language (`zh` \| `en`), title, slug, bodyMarkdown, status (`draft` \| `published`), publishedAt, createdAt, updatedAt, deletedAt | Unique `(language, slug)` and `(translationGroupId, language)`; title must be non-empty. A new post starts a new translation group |
+| `Post` | id, translationGroupId, language (`zh` \| `en`), title, slug, bodyMarkdown, tags (text array, default empty), status (`draft` \| `published`), publishedAt, createdAt, updatedAt, deletedAt | Unique `(language, slug)` and `(translationGroupId, language)`; title must be non-empty. A new post starts a new translation group |
 
 Post lifecycle:
 
@@ -87,7 +87,17 @@ Post lifecycle:
   `draft`. Permanent deletion is a separate admin-only service function and is
   not exposed by the API.
 
-Later milestones add `Tag` and a post–tag relation (owned by `posts`), `Image`
+Tags are names stored on the post in the order given, not a separate entity:
+a tag exists while a post carries it, and its page lists the published posts
+that carry it. The `posts` service normalizes every name before it is stored or
+compared (`lib/tag.ts`): Unicode NFKC, lowercase, and each run of spaces,
+underscores, and hyphens becomes one hyphen, trimmed at both ends. Spellings
+that normalize alike are one tag, kept once per post. A normalized name must be
+letters (any script) and digits joined by single hyphens, at most 40
+characters; blank names are dropped, other names are refused. Saving tags
+replaces all of a post's tags.
+
+Later milestones add `Image`
 (owned by `media`; files on the `media` volume, metadata in Postgres), and
 `Comment` with its rate-limit records (owned by `comments`; Postgres, no
 separate cache). Their fields are [deferred](#deferred-decisions) to those
@@ -189,7 +199,8 @@ English.
   (with an optional line and actions below and beside it), `LanguageLabel`,
   `Prose` (rendered Markdown, including code, quotes, lists, and tables),
   `Pager`, `Button` and `ButtonLink`, `StatusBadge`, `Field` (labelled inputs
-  and errors), `Notice` (a form's error or success message), `PostTable` (the
+  and errors), `TagField` (a post's tags as removable chips with an input that
+  adds them), `Notice` (a form's error or success message), `PostTable` (the
   admin post list), `TrashTable` (the admin trash), `TokenTable` (the admin API
   token list), and `EditorLayout` (Markdown and preview side by side,
   stacked below 900 px).
@@ -255,7 +266,6 @@ account comes from `.env`. Development uses `npm run dev` against the Compose
 
 | Decision | Needed by | Current default |
 | --- | --- | --- |
-| `Tag` and post–tag fields | M3 | None; owned by `posts` |
 | Search index | M3 | `ILIKE` without an index; add `pg_trgm` only if measured latency requires it |
 | `Image` fields, upload size limit, and accepted file types | M3 | None; files on the `media` volume, metadata in Postgres, owned by `media` |
 | `Comment` and rate-limit record fields | M4 | None; stored in Postgres, owned by `comments` |

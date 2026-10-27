@@ -9,25 +9,34 @@ export const postStatuses = ["draft", "published"] as const;
 const language = z.enum(languages);
 const status = z.enum(postStatuses);
 const timestamp = z.iso.datetime();
+// The blog normalizes tag names and rejects invalid ones; see the posts service.
+const tags = z
+  .array(z.string())
+  .describe(
+    "The post's tags; an edit replaces all of them. The blog lowercases each name and turns spaces into hyphens; a name has letters, digits, and single hyphens only.",
+  );
 
 // GET /posts?status=…: every post outside the trash, most recently changed
 // first, optionally only those with one status.
 export const listPostsQuery = z.strictObject({ status: status.optional() });
 
-// POST /posts: a new draft. The slug comes from the title.
+// POST /posts: a new draft. The slug comes from the title; tags are optional.
 export const createPostRequest = z.strictObject({
   language,
   title: z.string(),
   bodyMarkdown: z.string(),
+  tags: tags.optional(),
 });
 
 // PATCH /posts/{id}: changes only the fields given. `status` publishes or
-// unpublishes; `slug` can change only before the first publication.
+// unpublishes; `slug` can change only before the first publication; `tags`
+// replaces the post's tags.
 export const updatePostRequest = z
   .strictObject({
     title: z.string().optional(),
     bodyMarkdown: z.string().optional(),
     slug: z.string().optional(),
+    tags: tags.optional(),
     status: status.optional(),
   })
   .refine((fields) => Object.values(fields).some((v) => v !== undefined), {
@@ -41,6 +50,7 @@ export const postResponse = z.object({
   title: z.string(),
   slug: z.string(),
   bodyMarkdown: z.string(),
+  tags: z.array(z.string()),
   status,
   publishedAt: timestamp.nullable(),
   updatedAt: timestamp,

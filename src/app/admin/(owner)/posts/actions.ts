@@ -21,6 +21,7 @@ const editorFields = z.object({
   // Sent only while the post's slug can still change.
   slug: z.string().optional(),
   bodyMarkdown: z.string(),
+  tags: z.array(z.string()),
   intent: z.enum(["save", "publish", "unpublish", "preview", "trash"]),
 });
 
@@ -53,9 +54,12 @@ export async function editPostAction(
   form: FormData,
 ): Promise<EditorState> {
   await requireOwner();
-  const input = editorFields.safeParse(Object.fromEntries(form));
+  const input = editorFields.safeParse({
+    ...Object.fromEntries(form),
+    tags: form.getAll("tags"),
+  });
   if (!input.success) return { error: "The form is invalid; reload the page." };
-  const { intent, id, language, title, slug, bodyMarkdown } = input.data;
+  const { intent, id, language, title, slug, bodyMarkdown, tags } = input.data;
 
   if (intent === "preview") {
     return { preview: await renderMarkdown(bodyMarkdown) };
@@ -63,7 +67,12 @@ export async function editPostAction(
   let next: string;
   try {
     if (!id) {
-      const created = await createDraft({ language, title, bodyMarkdown });
+      const created = await createDraft({
+        language,
+        title,
+        bodyMarkdown,
+        tags,
+      });
       next = `/admin/posts/${created.id}`;
     } else if (intent === "trash") {
       await trashPost(id);
@@ -73,6 +82,7 @@ export async function editPostAction(
         title,
         slug,
         bodyMarkdown,
+        tags,
         status: statusChanges[intent],
       });
       // The page shows the status, the public link, and the matching buttons.

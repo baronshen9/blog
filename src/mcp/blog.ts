@@ -53,7 +53,7 @@ type BlogTool = {
 const postId = z.strictObject({
   id: postResponse.shape.id.describe("The post's id, as list_posts shows it."),
 });
-const { title, bodyMarkdown, slug } = updatePostRequest.shape;
+const { title, bodyMarkdown, slug, tags } = updatePostRequest.shape;
 
 const tools: BlogTool[] = [
   tool({
@@ -82,7 +82,7 @@ const tools: BlogTool[] = [
     name: "create_draft",
     title: "Create a draft",
     description:
-      "Create a draft post in Chinese (zh) or English (en) with a title and a Markdown body. The slug is generated from the title.",
+      "Create a draft post in Chinese (zh) or English (en) with a title, a Markdown body, and optional tags. The slug is generated from the title.",
     input: createPostRequest,
     call: (draft) => ({ method: "POST", path: "/posts", body: draft }),
     response: postResponse,
@@ -91,8 +91,8 @@ const tools: BlogTool[] = [
     name: "update_post",
     title: "Edit a post",
     description:
-      "Change a post's title, Markdown body, or slug; only the fields given change. The slug can change only before the post's first publication.",
-    input: postId.extend({ title, bodyMarkdown, slug }),
+      "Change a post's title, Markdown body, slug, or tags; only the fields given change, and given tags replace all of the post's tags. The slug can change only before the post's first publication.",
+    input: postId.extend({ title, bodyMarkdown, slug, tags }),
     call: ({ id, ...fields }) => ({
       method: "PATCH",
       path: `/posts/${id}`,

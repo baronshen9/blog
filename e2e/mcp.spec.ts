@@ -1,9 +1,6 @@
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { expect, test } from "@playwright/test";
 import { postResponse } from "../src/contract/index.ts";
-import { createToken, signIn } from "./owner";
+import { connectMcp, createToken, signIn } from "./owner";
 
 test("an assistant publishes a draft through the MCP server with the owner's token", async ({
   page,
@@ -13,26 +10,7 @@ test("an assistant publishes a draft through the MCP server with the owner's tok
   await signIn(page);
   const secret = await createToken(page, title);
 
-  // Started the way Claude Code and Codex start it; see the README.
-  const client = new Client({ name: "smoke", version: "1.0.0" });
-  await client.connect(
-    new StdioClientTransport({
-      command: process.execPath,
-      args: ["src/mcp/server.ts"],
-      env: { BLOG_URL: baseURL ?? "", BLOG_API_TOKEN: secret },
-      stderr: "inherit",
-    }),
-  );
-  const call = async (name: string, args: Record<string, unknown>) => {
-    const result = (await client.callTool({
-      name,
-      arguments: args,
-    })) as CallToolResult;
-    const [content] = result.content;
-    expect(result.isError ?? false).toBe(false);
-    return content?.type === "text" ? content.text : "";
-  };
-
+  const { call, close } = await connectMcp(baseURL, secret);
   try {
     const draft = postResponse.parse(
       JSON.parse(
@@ -61,6 +39,6 @@ test("an assistant publishes a draft through the MCP server with the owner's tok
     await call("delete_post", { id: draft.id });
     expect((await page.goto(`/en/posts/${draft.slug}`))?.status()).toBe(404);
   } finally {
-    await client.close();
+    await close();
   }
 });

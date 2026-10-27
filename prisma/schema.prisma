@@ -41,6 +41,7 @@ model Post {
   title              String
   slug               String
   bodyMarkdown       String
+  tags               String[]   @default([])
   status             PostStatus @default(draft)
   publishedAt        DateTime?
   createdAt          DateTime   @default(now())

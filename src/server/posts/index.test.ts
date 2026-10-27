@@ -110,6 +110,48 @@ test("changes only the fields given", async () => {
   });
 });
 
+test("normalizes tags and keeps spellings that normalize alike as one tag", async () => {
+  const post = await createDraft({
+    ...draft,
+    tags: ["TypeScript", " typescript ", "Next JS", "next_js", " ", "数据库"],
+  });
+  expect(post.tags).toEqual(["typescript", "next-js", "数据库"]);
+
+  await updatePost(post.id, { title: "Renamed" });
+  await expect(getPost(post.id)).resolves.toMatchObject({
+    tags: ["typescript", "next-js", "数据库"],
+  });
+
+  await updatePost(post.id, { tags: ["Postgres", "TYPESCRIPT"] });
+  await expect(getPost(post.id)).resolves.toMatchObject({
+    tags: ["postgres", "typescript"],
+  });
+  await updatePost(post.id, { tags: [] });
+  await expect(getPost(post.id)).resolves.toMatchObject({ tags: [] });
+  await expect(createDraft(draft)).resolves.toMatchObject({ tags: [] });
+});
+
+test.each([
+  ["creating", () => createDraft({ ...draft, tags: ["ok", "c++"] })],
+  [
+    "saving",
+    async () =>
+      updatePost((await createDraft(draft)).id, { tags: ["ok", "a/b"] }),
+  ],
+  [
+    "saving a long tag",
+    async () =>
+      updatePost((await createDraft(draft)).id, { tags: ["a".repeat(41)] }),
+  ],
+])("refuses %s a post with an invalid tag", async (_, save) => {
+  await expect(save()).rejects.toMatchObject({
+    code: "VALIDATION",
+    message: expect.stringContaining("letters, digits, and single hyphens"),
+  });
+  const saved = await getDb().post.findMany({ select: { tags: true } });
+  expect(saved.flatMap(({ tags }) => tags)).toEqual([]);
+});
+
 test("changes a never-published post's slug", async () => {
   const post = await createDraft({ ...draft, language: "zh", title: "你好" });
 
