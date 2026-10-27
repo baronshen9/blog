@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { signIn } from "./owner";
+import { marker, signIn } from "./owner";
 
 // A 1×1 PNG.
 const png = Buffer.from(
@@ -10,7 +10,7 @@ const png = Buffer.from(
 test("the owner uploads an image into a post that readers then see", async ({
   page,
 }) => {
-  const title = `Images smoke ${Date.now()}`;
+  const title = `Images smoke ${marker()}`;
   const main = page.getByRole("main");
   const file = page.getByLabel("Image file");
   const body = page.getByLabel("Body (Markdown)");

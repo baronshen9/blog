@@ -1,11 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { createToken, signIn } from "./owner";
+import { createToken, marker, signIn } from "./owner";
 
 test("an assistant publishes a post through the API with the owner's token", async ({
   page,
   request,
 }) => {
-  const stamp = Date.now();
+  const stamp = marker();
   await signIn(page);
   const secret = await createToken(page, `API smoke ${stamp}`);
   const headers = { authorization: `Bearer ${secret}` };

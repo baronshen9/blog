@@ -1,12 +1,12 @@
 import { expect, test } from "@playwright/test";
 import { postResponse } from "../src/contract/index.ts";
-import { connectMcp, createToken, signIn } from "./owner";
+import { connectMcp, createToken, marker, signIn } from "./owner";
 
 test("the owner tags a post in the admin and through MCP alike", async ({
   page,
   baseURL,
 }) => {
-  const title = `Tags smoke ${Date.now()}`;
+  const title = `Tags smoke ${marker()}`;
   const main = page.getByRole("main");
   const field = page.getByRole("textbox", { name: "Tags" });
   const tags = main.getByRole("list", { name: "Tags" }).getByRole("listitem");

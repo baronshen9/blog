@@ -1,12 +1,12 @@
 import { expect, test } from "@playwright/test";
 import { postResponse } from "../src/contract/index.ts";
-import { connectMcp, createToken, signIn } from "./owner";
+import { connectMcp, createToken, marker, signIn } from "./owner";
 
 test("an assistant publishes a draft through the MCP server with the owner's token", async ({
   page,
   baseURL,
 }) => {
-  const title = `MCP smoke ${Date.now()}`;
+  const title = `MCP smoke ${marker()}`;
   await signIn(page);
   const secret = await createToken(page, title);
 

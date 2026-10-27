@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { signIn } from "./owner";
+import { marker, signIn } from "./owner";
 
 test("the owner sets a Chinese post's slug until its first publication", async ({
   page,
 }) => {
-  const slug = `slug-smoke-${Date.now()}`;
+  const slug = `slug-smoke-${marker()}`;
   const url = `/zh/posts/${slug}`;
   const main = page.getByRole("main");
   await signIn(page);
