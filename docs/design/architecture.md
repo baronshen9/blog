@@ -166,9 +166,11 @@ replaces all of a post's tags.
    file with sharp to learn its format, rather than trusting its name or
    declared type, so truncated or corrupt files are refused too. Every frame
    of an animation is decoded, and a GIF's blocks are also checked to be
-   whole, with the trailer after them and every frame's data holding all its
-   pixels, because the decoder shows a frame whose data ends early with the
-   rest blank. SVG is refused
+   whole, with the trailer after them and every frame's data a valid LZW
+   stream that ends with its end-of-information code and holds exactly the
+   frame's pixels, because the decoder shows a frame whose data ends early
+   with the rest blank and ignores a missing end code or an invalid code after
+   the last pixel. SVG is refused
    because it can carry scripts. Every refusal names the reason.
 3. The service writes the file, then its `Image` row, and returns its path;
    the editor inserts `![<file name>](/media/<id>.<extension>)` at the cursor
@@ -323,6 +325,7 @@ English.
 | Invalid input and impossible states | TypeScript, zod schemas, Prisma enums | Unit tests at the API and form boundary |
 | Markdown rendering, slugs, excerpts | Pure functions in `lib/` | Unit tests |
 | Post lifecycle, draft privacy, trash, token revocation | Services and database constraints | Integration tests against Postgres (Testcontainers), calling services and route handlers directly |
+| Server Action access checks and their wiring to services | `requireOwner` in each action | Integration tests that call the actions directly, with the request APIs of `next/headers`, `next/server`, and `next/cache` stubbed |
 | MCP tool behavior and error wording | `contract` schemas | Unit tests with a stubbed `fetch` |
 | Module dependency direction | ESLint `no-restricted-imports` | `scripts/check.sh` |
 | Key user journeys | The integrated stack | `scripts/smoke.sh` |
@@ -331,6 +334,11 @@ English.
 Integration tests share one Postgres container per run. Test files run one at
 a time, and a Vitest setup file truncates every application table before each
 test, so each test creates the data it needs and writes no cleanup.
+
+Smoke journeys share one running stack and run in parallel. Each marks the
+data it creates with `marker()` from `e2e/owner.ts` (random, never the clock)
+and asserts only on that data, never on global order, counts, or the page that
+lists it; `homeCard()` there finds a journey's post on any home page.
 
 ## Commands
 

@@ -1,8 +1,10 @@
 // Whether a GIF is complete: every block is whole, the trailer follows the
-// last one, and every frame's compressed data holds all of its pixels. The
+// last one, and every frame's compressed data is a valid LZW stream that ends
+// with its end-of-information code and holds exactly the frame's pixels. The
 // decoder shows a frame whose data ends early, or a truncated later frame of
-// an animation, with the missing part blank, so decoding alone does not
-// reveal either.
+// an animation, with the missing part blank, and it ignores a missing
+// end-of-information code or an invalid code after the last pixel, so
+// decoding alone reveals none of these.
 export function isCompleteGif(bytes: Uint8Array): boolean {
   // Header (6 bytes) and logical screen descriptor (7 bytes).
   const screen = bytes[10];
@@ -26,7 +28,7 @@ export function isCompleteGif(bytes: Uint8Array): boolean {
         return false;
       }
       const data = subBlocks(bytes, at + 1);
-      if (decodedLength(data.data, minCodeSize) < pixels) return false;
+      if (decodedPixels(data.data, minCodeSize) !== pixels) return false;
       at = data.end;
     } else {
       // Another byte, or the end of the file before the trailer.
@@ -61,9 +63,14 @@ function subBlocks(
 }
 
 // The number of pixels that a frame's LZW data decodes to, counting string
-// lengths without building the strings. It stops at the end-of-information
-// code, at the end of the data, or at a code no decoder could resolve.
-function decodedLength(data: Uint8Array, minCodeSize: number): number {
+// lengths without building the strings, or undefined unless the data is a
+// valid stream up to its end-of-information code: data that runs out first,
+// or a code no decoder could resolve, makes the stream invalid. Bytes after
+// the end-of-information code are ignored, as decoders do.
+function decodedPixels(
+  data: Uint8Array,
+  minCodeSize: number,
+): number | undefined {
   const clear = 1 << minCodeSize;
   const end = clear + 1;
   const lengths = new Uint32Array(4096).fill(1, 0, clear);
@@ -80,7 +87,7 @@ function decodedLength(data: Uint8Array, minCodeSize: number): number {
       bitCount += 8;
       at += 1;
     }
-    if (bitCount < codeSize) return pixels;
+    if (bitCount < codeSize) return undefined;
     const code = bits & ((1 << codeSize) - 1);
     bits >>>= codeSize;
     bitCount -= codeSize;
@@ -92,12 +99,12 @@ function decodedLength(data: Uint8Array, minCodeSize: number): number {
     }
     if (code === end) return pixels;
     if (previous === -1) {
-      if (code > clear) return pixels;
+      if (code > clear) return undefined;
       pixels += 1;
       previous = code;
       continue;
     }
-    if (code > next || (code === next && next === 4096)) return pixels;
+    if (code > next || (code === next && next === 4096)) return undefined;
     const length =
       code === next ? (lengths[previous] ?? 0) + 1 : (lengths[code] ?? 0);
     if (next < 4096) {
