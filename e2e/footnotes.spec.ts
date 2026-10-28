@@ -31,7 +31,9 @@ test("readers follow footnotes both ways, labelled in the page's language", asyn
     [english, "Footnotes", "Back to reference 1"],
   ] as const) {
     await page.goto(path);
-    await expect(main.getByRole("heading", { name: heading })).toBeVisible();
+    await expect(
+      main.getByRole("heading", { name: heading, exact: true }),
+    ).toBeVisible();
     const reference = main.getByRole("link", { name: "1", exact: true });
     const target = page.locator(":target");
 
@@ -41,7 +43,7 @@ test("readers follow footnotes both ways, labelled in the page's language", asyn
     await expect(target).toHaveRole("listitem");
     await expect(target).toContainText(mark);
 
-    await main.getByRole("link", { name: back }).click();
+    await main.getByRole("link", { name: back, exact: true }).click();
     await expect(page).toHaveURL(/#user-content-fnref-1$/);
     await expect(target).toHaveText("1");
   }
