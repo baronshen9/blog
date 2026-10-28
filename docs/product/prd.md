@@ -229,7 +229,11 @@ Acceptance criteria:
 
 - Every public page offers a language switch; the choice changes all interface
   text, and the page URL shows the language.
-- The selected language persists while the reader navigates the site.
+- The selected language persists while the reader navigates the site, with
+  one exception: a post that exists only in the other language opens at its
+  own URL, and the interface follows its language.
+- A first visit to `/` opens the site's default language
+  (`SITE_DEFAULT_LANGUAGE`).
 
 ### US-14 Linked translations
 
@@ -241,8 +245,10 @@ Acceptance criteria:
 - The owner can add a translation of an existing post in the admin and through
   MCP; each version is drafted and published independently.
 - A post page with a published translation links to the other version.
-- Post lists, tag pages, and search show posts in the selected interface
-  language.
+- Post lists, tag pages, and search show each translation group once: its
+  version in the selected interface language when that is published,
+  otherwise its published version in the other language, with its language
+  label.
 
 ### US-15 Visual design
 
@@ -294,8 +300,9 @@ Acceptance criteria:
 ## Open questions
 
 - Should a language-filtered list also show posts that exist only in the other
-  language, and which language is the default for a first visit? — deferred to
-  M5 planning.
+  language, and which language is the default for a first visit? — answered at
+  M5 planning: lists show them with their language label (US-14), and `/`
+  opens `SITE_DEFAULT_LANGUAGE` (US-13).
 - Should the owner be notified of new pending comments outside the admin? —
   deferred to M4 planning; no notification is in scope.
 
@@ -304,3 +311,4 @@ Acceptance criteria:
 | Date | Change | Reason | Issue |
 | --- | --- | --- | --- |
 | 2026-10-27 | Added US-15 (visual design) to M1 | M1 acceptance found the front end unstyled; no requirement covered how the blog looks | #17 |
+| 2026-10-28 | Answered the open question on language filtering and the first visit; US-13 and US-14 state the answers and the one exception to the persisting language | Decided by the user at M5 planning | #84 |
