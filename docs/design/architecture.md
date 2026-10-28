@@ -153,8 +153,12 @@ replaces all of a post's tags.
 2. `app/[locale]` lists published posts through the `posts` published-post
    query: newest first publication first, with a plain-text excerpt from
    `lib`, ten per page (`?page=`); a page past the last is not found.
-3. Until M5 decides language filtering, both locales list posts of every
-   language, each linking to its own `/<language>/posts/<slug>`.
+3. A language's list shows each translation group once: its version in that
+   language when published, otherwise its published version in the other
+   language, which the card's language label marks. The list is ordered and
+   paged by the shown versions. Each card links to the post's own
+   `/<language>/posts/<slug>`, so a post that exists only in the other
+   language opens in that language (US-13's one exception).
 
 **Owner uploads an image (M3)**
 
@@ -237,10 +241,13 @@ it before reading the file; it accepts regular files only.
 **Search (M3)** matches the query as a case-insensitive substring (`ILIKE`,
 with its wildcards escaped) against title and body of published posts; there
 is no separate search service. The header of every public page submits `?q=`
-to `/<locale>/search`, which lists matches like the home page.
+to `/<locale>/search`, which lists matches like the home page: among the
+matching posts, each translation group once, preferring the page's language.
 
 **Tag pages (M3)** at `/<locale>/tags/<tag>` (the name percent-encoded) list
-the published posts carrying the tag, compared normalized, like the home page.
+the published posts carrying the tag, compared normalized, like the home page:
+among the posts carrying it, each translation group once, preferring the page's
+language.
 Post lists, search results, and the post page show each published post's tags
 as links to these pages. A tag no published post carries is not found, so the
 tags of drafts and trashed posts never reach readers.
@@ -395,5 +402,5 @@ account comes from `.env`. Development uses `npm run dev` against the Compose
 | Decision | Needed by | Current default |
 | --- | --- | --- |
 | Search index | M3 | `ILIKE` without an index; add `pg_trgm` only if measured latency requires it |
-| Whether a language-filtered list shows posts that exist only in the other language | M5 | None (PRD open question) |
-| Language of a first visit | M5 | `/` redirects to `SITE_DEFAULT_LANGUAGE` (PRD open question) |
+| Whether a language-filtered list shows posts that exist only in the other language | M5 | Decided at M5 planning: yes, with their language label, each translation group once (Reader browses the home page) |
+| Language of a first visit | M5 | Decided at M5 planning: `/` redirects to `SITE_DEFAULT_LANGUAGE` |

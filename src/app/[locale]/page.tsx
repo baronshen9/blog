@@ -19,8 +19,8 @@ export async function generateMetadata({
   return { title: messages[locale].home.title };
 }
 
-// The home page of a language: published posts, newest first, one page per
-// ?page=. Reading the search parameters renders it on every request.
+// The home page of a language: its list of published posts, newest first, one
+// page per ?page=. Reading the search parameters renders it on every request.
 export default async function HomePage({
   params,
   searchParams,
@@ -36,10 +36,14 @@ export default async function HomePage({
     posts,
     page: current,
     pageCount,
-  } = await listPublishedPosts(page.data ?? 1).catch((error: unknown) => {
-    if (error instanceof DomainError && error.code === "NOT_FOUND") notFound();
-    throw error;
-  });
+  } = await listPublishedPosts(locale, page.data ?? 1).catch(
+    (error: unknown) => {
+      if (error instanceof DomainError && error.code === "NOT_FOUND") {
+        notFound();
+      }
+      throw error;
+    },
+  );
   return (
     <main>
       <PageTitle>{text.title}</PageTitle>

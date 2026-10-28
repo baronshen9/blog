@@ -438,12 +438,12 @@ async function publishOn(
   return post;
 }
 
-test("lists published posts newest first with an excerpt, in every language", async () => {
+test("lists published posts newest first with an excerpt, including other-language posts without a version in the language", async () => {
   await publishOn(1, { ...draft, title: "Old", bodyMarkdown: "Old **body**" });
   await publishOn(3, { ...draft, title: "新", language: "zh" });
   await publishOn(2, { ...draft, title: "Middle" });
 
-  const { posts, page, pageCount } = await listPublishedPosts(1);
+  const { posts, page, pageCount } = await listPublishedPosts("en", 1);
 
   expect({ page, pageCount }).toEqual({ page: 1, pageCount: 1 });
   expect(posts.map((post) => [post.language, post.title])).toEqual([
@@ -461,6 +461,101 @@ test("lists published posts newest first with an excerpt, in every language", as
   });
 });
 
+// Publishes a translation of `source` on the given day.
+async function translateOn(day: number, source: { id: string }, title: string) {
+  const post = await createTranslation(source.id, {
+    title,
+    bodyMarkdown: `${title} body`,
+  });
+  await updatePost(post.id, { status: "published" });
+  const publishedAt = new Date(Date.UTC(2026, 0, day));
+  await getDb().post.update({ where: { id: post.id }, data: { publishedAt } });
+  return post;
+}
+
+test("lists each translation group once, in the language when published", async () => {
+  const both = await publishOn(1, { ...draft, title: "Both" });
+  await translateOn(4, both, "两种");
+  const draftTranslation = await publishOn(2, { ...draft, title: "English" });
+  await createTranslation(draftTranslation.id, {
+    title: "草稿",
+    bodyMarkdown: "",
+  });
+  const trashedTranslation = await publishOn(3, {
+    ...draft,
+    language: "zh",
+    title: "中文",
+  });
+  await trashPost((await translateOn(5, trashedTranslation, "Trashed")).id);
+
+  const list = async (language: "zh" | "en") =>
+    (await listPublishedPosts(language, 1)).posts.map((post) => [
+      post.language,
+      post.title,
+    ]);
+
+  // Each list is newest first by the publication of the version it shows.
+  expect(await list("en")).toEqual([
+    ["zh", "中文"],
+    ["en", "English"],
+    ["en", "Both"],
+  ]);
+  expect(await list("zh")).toEqual([
+    ["zh", "两种"],
+    ["zh", "中文"],
+    ["en", "English"],
+  ]);
+});
+
+test("pages through a language's list counting each group once", async () => {
+  for (let day = 1; day <= publishedPageSize + 1; day++) {
+    const post = await publishOn(day, { ...draft, title: `Day ${day}` });
+    await translateOn(day, post, `第${day}天`);
+  }
+
+  const first = await listPublishedPosts("zh", 1);
+  const second = await listPublishedPosts("zh", 2);
+
+  expect(first).toMatchObject({ page: 1, pageCount: 2 });
+  expect(first.posts.every((post) => post.language === "zh")).toBe(true);
+  expect(second.posts.map((post) => post.title)).toEqual(["第1天"]);
+  await expect(listPublishedPosts("zh", 3)).rejects.toMatchObject({
+    code: "NOT_FOUND",
+  });
+});
+
+test("search and tag pages show a group's other version when only it matches", async () => {
+  const post = await publishOn(1, {
+    ...draft,
+    title: "Deploying",
+    bodyMarkdown: "Run it locally",
+    tags: ["ops"],
+  });
+  const translation = await translateOn(2, post, "部署");
+  await updatePost(translation.id, {
+    bodyMarkdown: "在本机运行",
+    tags: ["运维"],
+  });
+
+  const search = async (language: "zh" | "en", query: string) =>
+    (await searchPublishedPosts(language, query, 1)).posts.map(
+      (found) => found.title,
+    );
+  const tagged = async (language: "zh" | "en", tag: string) =>
+    (await listPublishedPostsByTag(language, tag, 1)).posts.map(
+      (found) => found.title,
+    );
+
+  expect(await search("en", "deploy")).toEqual(["Deploying"]);
+  expect(await search("en", "本机")).toEqual(["部署"]);
+  expect(await search("zh", "deploy")).toEqual(["Deploying"]);
+  expect(await search("zh", "部署")).toEqual(["部署"]);
+  expect(await tagged("en", "ops")).toEqual(["Deploying"]);
+  expect(await tagged("en", "运维")).toEqual(["部署"]);
+  expect(await tagged("zh", "ops")).toEqual(["Deploying"]);
+  expect(await tagged("zh", "运维")).toEqual(["部署"]);
+});
+
 test("never lists drafts, unpublished, or trashed posts", async () => {
   await createDraft({ ...draft, title: "Draft" });
   const unpublished = await publishOn(1, { ...draft, title: "Unpublished" });
@@ -468,7 +563,7 @@ test("never lists drafts, unpublished, or trashed posts", async () => {
   const trashed = await publishOn(2, { ...draft, title: "Trashed" });
   await trashPost(trashed.id);
 
-  await expect(listPublishedPosts(1)).resolves.toEqual({
+  await expect(listPublishedPosts("en", 1)).resolves.toEqual({
     posts: [],
     page: 1,
     pageCount: 1,
@@ -480,15 +575,15 @@ test("pages through a long list and refuses pages that do not exist", async () =
     await publishOn(day, { ...draft, title: `Day ${day}` });
   }
 
-  const first = await listPublishedPosts(1);
-  const second = await listPublishedPosts(2);
+  const first = await listPublishedPosts("en", 1);
+  const second = await listPublishedPosts("en", 2);
 
   expect(first.posts).toHaveLength(publishedPageSize);
   expect(first.posts[0]?.title).toBe(`Day ${publishedPageSize + 1}`);
   expect(second).toMatchObject({ page: 2, pageCount: 2 });
   expect(second.posts.map((post) => post.title)).toEqual(["Day 1"]);
   for (const page of [0, 3, 1.5, Number.NaN]) {
-    await expect(listPublishedPosts(page)).rejects.toMatchObject({
+    await expect(listPublishedPosts("en", page)).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
   }
@@ -506,7 +601,9 @@ test("searches titles and bodies of published posts in Chinese and English", asy
   await publishOn(5, { ...draft, title: "100% sure", bodyMarkdown: "a_b \\n" });
 
   const titles = async (query: string) =>
-    (await searchPublishedPosts(query, 1)).posts.map((post) => post.title);
+    (await searchPublishedPosts("en", query, 1)).posts.map(
+      (post) => post.title,
+    );
 
   expect(await titles(" testing ")).toEqual(["Other", "Testing Notes"]);
   expect(await titles("笔记")).toEqual(["部署笔记"]);
@@ -530,7 +627,7 @@ test("never finds drafts, unpublished, or trashed posts", async () => {
   const trashed = await publishOn(2, { ...draft, title: "Trashed match" });
   await trashPost(trashed.id);
 
-  await expect(searchPublishedPosts("match", 1)).resolves.toEqual({
+  await expect(searchPublishedPosts("en", "match", 1)).resolves.toEqual({
     posts: [],
     page: 1,
     pageCount: 1,
@@ -542,13 +639,13 @@ test("refuses an empty search and pages through many results", async () => {
     await publishOn(day, { ...draft, title: `Match ${day}` });
   }
 
-  await expect(searchPublishedPosts("  ", 1)).rejects.toMatchObject({
+  await expect(searchPublishedPosts("en", "  ", 1)).rejects.toMatchObject({
     code: "VALIDATION",
   });
-  const second = await searchPublishedPosts("match", 2);
+  const second = await searchPublishedPosts("en", "match", 2);
   expect(second).toMatchObject({ page: 2, pageCount: 2 });
   expect(second.posts.map((post) => post.title)).toEqual(["Match 1"]);
-  await expect(searchPublishedPosts("match", 3)).rejects.toMatchObject({
+  await expect(searchPublishedPosts("en", "match", 3)).rejects.toMatchObject({
     code: "NOT_FOUND",
   });
 });
@@ -565,12 +662,14 @@ test("lists published posts by tag in Chinese and English, any spelling", async 
   await publishOn(4, { ...draft, title: "Untagged" });
 
   const titles = async (tag: string) =>
-    (await listPublishedPostsByTag(tag, 1)).posts.map((post) => post.title);
+    (await listPublishedPostsByTag("en", tag, 1)).posts.map(
+      (post) => post.title,
+    );
 
   expect(await titles("next-js")).toEqual(["Middle", "Old"]);
   expect(await titles("NEXT_JS")).toEqual(["Middle", "Old"]);
   expect(await titles("数据库")).toEqual(["新", "Old"]);
-  const result = await listPublishedPostsByTag("Next JS", 1);
+  const result = await listPublishedPostsByTag("en", "Next JS", 1);
   expect(result).toMatchObject({ tag: "next-js", page: 1, pageCount: 1 });
   expect(result.posts[1]?.tags).toEqual(["next-js", "数据库"]);
 });
@@ -583,7 +682,7 @@ test("a tag without published posts is not found", async () => {
   await trashPost(trashed.id);
 
   for (const tag of ["hidden", "missing", "", "a/b"]) {
-    await expect(listPublishedPostsByTag(tag, 1)).rejects.toMatchObject({
+    await expect(listPublishedPostsByTag("en", tag, 1)).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
   }
@@ -595,12 +694,14 @@ test("pages through a tag's posts and refuses pages that do not exist", async ()
   }
   await publishOn(30, { ...draft, title: "Other" });
 
-  const second = await listPublishedPostsByTag("daily", 2);
+  const second = await listPublishedPostsByTag("en", "daily", 2);
   expect(second).toMatchObject({ page: 2, pageCount: 2 });
   expect(second.posts.map((post) => post.title)).toEqual(["Day 1"]);
-  await expect(listPublishedPostsByTag("daily", 3)).rejects.toMatchObject({
-    code: "NOT_FOUND",
-  });
+  await expect(listPublishedPostsByTag("en", "daily", 3)).rejects.toMatchObject(
+    {
+      code: "NOT_FOUND",
+    },
+  );
 });
 
 test("lists trashed posts, most recently trashed first", async () => {
