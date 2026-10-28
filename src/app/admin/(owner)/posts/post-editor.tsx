@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   startTransition,
   useActionState,
@@ -8,11 +9,12 @@ import {
   type FormEvent,
   type MouseEvent,
 } from "react";
-import type { PostStatus } from "@/server/posts";
+import type { Language, PostStatus, Translation } from "@/server/posts";
 import {
   Button,
   EditorLayout,
   ImageUpload,
+  LanguageLabel,
   Notice,
   Prose,
   StatusBadge,
@@ -26,17 +28,23 @@ import {
 } from "./actions";
 
 const languageNames = { en: "English", zh: "中文" } as const;
+const translationNames = { en: "English", zh: "Chinese" } as const;
 
 // `post` is the saved state of an existing post, as of `savedAt`; a new post
 // has none. The slug can be edited until the post's first publication.
 // `images` are the media service's upload rules for the upload control.
+// `translation` is the post's other language version (for a new translation,
+// the post it translates), or, as `{ missing }`, the language an existing
+// post without one can be translated into.
 export function PostEditor({
   initial,
   post,
   images,
+  translation,
 }: {
   initial: EditorValues;
   images: { accept: string[]; maxBytes: number };
+  translation?: Translation | { missing: Language };
   post?: {
     status: PostStatus;
     path: string;
@@ -96,15 +104,31 @@ export function PostEditor({
   // typed meanwhile, so its fields are read-only until the save ends.
   const creating = pending && !initial.id;
   const status = post?.status;
+  // An existing post keeps its language, and a translation takes the other
+  // language of the post it translates.
+  const languageFixed = Boolean(initial.id ?? initial.translationOf);
   return (
     <form onSubmit={submit}>
       {initial.id && <input type="hidden" name="id" value={initial.id} />}
-      {/* An existing post keeps its language; a disabled select is not sent. */}
-      {initial.id && (
+      {initial.translationOf && (
+        <input
+          type="hidden"
+          name="translationOf"
+          value={initial.translationOf}
+        />
+      )}
+      {/* A disabled select is not sent. */}
+      {languageFixed && (
         <input type="hidden" name="language" value={initial.language} />
       )}
       <EditorLayout
-        heading={initial.id ? "Edit post" : "New post"}
+        heading={
+          initial.id
+            ? "Edit post"
+            : initial.translationOf
+              ? "New translation"
+              : "New post"
+        }
         title={
           <input
             name="title"
@@ -118,7 +142,7 @@ export function PostEditor({
           <select
             name="language"
             defaultValue={initial.language}
-            disabled={creating || Boolean(initial.id)}
+            disabled={creating || languageFixed}
           >
             <option value="en">{languageNames.en}</option>
             <option value="zh">{languageNames.zh}</option>
@@ -140,6 +164,33 @@ export function PostEditor({
                   />
                 ),
               })
+        }
+        translation={
+          translation &&
+          ("missing" in translation ? (
+            <Link href={`/admin/posts/new?translationOf=${initial.id}`}>
+              Add {translationNames[translation.missing]} translation
+            </Link>
+          ) : (
+            <>
+              <span>Translation</span>
+              <LanguageLabel language={translation.language} />
+              <Link
+                href={
+                  translation.trashed
+                    ? "/admin/trash"
+                    : `/admin/posts/${translation.id}`
+                }
+              >
+                {translation.title}
+              </Link>
+              {translation.trashed ? (
+                "in the trash"
+              ) : (
+                <StatusBadge status={translation.status} />
+              )}
+            </>
+          ))
         }
         tags={
           <TagField

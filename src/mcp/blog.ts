@@ -16,6 +16,7 @@ import {
 import { z } from "zod";
 import {
   createPostRequest,
+  createTranslationRequest,
   errorResponse,
   imageLimitsResponse,
   imageResponse,
@@ -94,6 +95,19 @@ const tools: BlogTool[] = [
       "Create a draft post in Chinese (zh) or English (en) with a title, a Markdown body, and optional tags. The slug is generated from the title.",
     input: createPostRequest,
     call: (draft) => ({ method: "POST", path: "/posts", body: draft }),
+    response: postResponse,
+  }),
+  tool({
+    name: "create_translation",
+    title: "Translate a post",
+    description:
+      "Create the translation of a post as a draft in its other language (Chinese for an English post, English for a Chinese one) with a title, a Markdown body, and optional tags; the slug is generated from the title. A post has at most one translation, shown as `translation` by get_post. Each version is edited and published on its own.",
+    input: postId.extend(createTranslationRequest.shape),
+    call: ({ id, ...draft }) => ({
+      method: "POST",
+      path: `/posts/${id}/translations`,
+      body: draft,
+    }),
     response: postResponse,
   }),
   tool({

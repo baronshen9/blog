@@ -1,20 +1,22 @@
 import Link from "next/link";
 import styles from "./editor-layout.module.css";
 
-// The post editor: title and status on top, then the language and the
-// post's public address, its tags, tools that insert into the Markdown, the
+// The post editor: title and status on top, then the language, the post's
+// public address, and its other language version, its tags, tools that insert into the Markdown, the
 // Markdown and its preview side by side (stacked below 900 px), and the
 // form's messages and actions at the bottom.
 // The layout labels the controls it is given, except the tags field, which
 // labels itself. `preview` is the rendered body, absent until the owner asks
 // for it. The address is either fixed, linking to the post when it is live,
-// or a prefix followed by the control that edits the slug.
+// or a prefix followed by the control that edits the slug. `translation` is
+// the post's other language version, or what starts it.
 export function EditorLayout({
   heading,
   title,
   status,
   language,
   address,
+  translation,
   tags,
   tools,
   markdown,
@@ -28,6 +30,7 @@ export function EditorLayout({
   language: React.ReactNode;
   address?:
     { path: string; live: boolean } | { prefix: string; slug: React.ReactNode };
+  translation?: React.ReactNode;
   tags: React.ReactNode;
   tools?: React.ReactNode;
   markdown: React.ReactNode;
@@ -70,6 +73,7 @@ export function EditorLayout({
             </label>
           </div>
         )}
+        {translation && <div className={styles.translation}>{translation}</div>}
       </div>
       {tags}
       {tools}
