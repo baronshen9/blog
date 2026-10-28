@@ -2,8 +2,12 @@
 
 import { headers } from "next/headers";
 import { z } from "zod";
-import { submitComment } from "@/server/comments";
-import { DomainError } from "@/server/errors";
+import { messages } from "@/messages";
+import {
+  commentLimits,
+  CommentRefused,
+  submitComment,
+} from "@/server/comments";
 import { languages } from "@/server/posts";
 import type { CommentFormState } from "@/ui";
 
@@ -15,7 +19,8 @@ const fields = z.object({
 });
 
 // Open to everyone by design: readers comment without an account. The post
-// is bound by the page; the service accepts only published posts.
+// is bound by the page, whose language is the post's; the service accepts only
+// published posts and gives the reason of a refusal, said in that language.
 export async function submitCommentAction(
   post: { language: string; slug: string },
   _previous: CommentFormState,
@@ -27,9 +32,11 @@ export async function submitCommentAction(
     website: form.get("website"),
   });
   const postInput = target.safeParse(post);
-  if (!input.success || !postInput.success) {
-    return { error: "The form is invalid; reload the page." };
+  if (!postInput.success) {
+    return { error: messages.en.comments.invalidForm };
   }
+  const text = messages[postInput.data.language].comments;
+  if (!input.success) return { error: text.invalidForm };
   const { nickname, message, website } = input.data;
   try {
     await submitComment({
@@ -41,8 +48,9 @@ export async function submitCommentAction(
     });
     return { sent: true };
   } catch (error) {
-    if (error instanceof DomainError) {
-      return { error: error.message, nickname, message };
+    if (error instanceof CommentRefused) {
+      const reason = text.refusals[error.reason](commentLimits);
+      return { error: reason, nickname, message };
     }
     throw error;
   }

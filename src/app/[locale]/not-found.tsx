@@ -1,16 +1,12 @@
-import type { Metadata } from "next";
-import { Card } from "@/ui";
+"use client";
 
-export const metadata: Metadata = { title: "Not found" };
+import { useParams } from "next/navigation";
+import type { Locale } from "@/messages";
+import { NotFoundCard } from "./not-found-card";
 
-// Rendered inside the public frame. Not-found pages receive no params, so the
-// way back is `/`, which leads to the home page of the default language.
+// Rendered inside the public frame. Not-found pages receive no props, so the
+// language comes from the URL, whose locale the proxy and layout have checked.
 export default function NotFound() {
-  return (
-    <main>
-      <Card title="Page not found" backHref="/" backLabel="All posts">
-        <p>This page does not exist or is no longer published.</p>
-      </Card>
-    </main>
-  );
+  const { locale } = useParams<{ locale: Locale }>();
+  return <NotFoundCard locale={locale} />;
 }

@@ -32,6 +32,7 @@ Copy `.env.example` to `.env` before running Compose. Node 24 is pinned in
 | `src/server/db/` | The Prisma client (generated into `generated/`, Git-ignored); the only place it is created |
 | `src/contract/` | zod schemas and types of the HTTP API, shared with the MCP server |
 | `src/lib/` | Pure functions: Markdown rendering, slugs, excerpts |
+| `src/messages/` | Public interface text per language |
 | `src/ui/` | Presentational React components |
 | `src/mcp/` | Stdio MCP server run on the host; talks to the blog over HTTP only |
 | `prisma/` | Schema and committed migrations |
@@ -67,8 +68,9 @@ Copy `.env.example` to `.env` before running Compose. Node 24 is pinned in
 
 ## Invariants
 
-- Dependency direction: `app → server, ui, contract, lib`; `server → contract,
-  lib`; `ui → lib`; `mcp → contract`. Enforced by ESLint; do not disable it.
+- Dependency direction: `app → server, ui`; `app, server → contract, lib,
+  messages`; `ui → lib, messages`; `mcp → contract`. Enforced by ESLint; do
+  not disable it.
 - Only `src/server/` touches the database, and a domain uses another domain
   only through its `index.ts`.
 - Admin and MCP share the same services; never add content rules to a route,

@@ -28,10 +28,14 @@ test("readers search published posts in Chinese and English from any page", asyn
   await create("en", `Hidden draft ${stamp}`, `kubernetes${stamp}`, "draft");
 
   const results = page.getByRole("main").getByRole("article");
+  // The header's search box, in the language of the page it is on.
   const search = async (from: string, words: string) => {
     await page.goto(from);
-    await page.getByRole("searchbox", { name: "Search posts" }).fill(words);
-    await page.getByRole("button", { name: "Search" }).click();
+    const box = page.getByRole("searchbox", {
+      name: /^(Search posts|搜索文章)$/,
+    });
+    await box.fill(words);
+    await page.getByRole("button", { name: /^(Search|搜索)$/ }).click();
     await expect(page).toHaveURL(/\/(en|zh)\/search\?q=/);
   };
 

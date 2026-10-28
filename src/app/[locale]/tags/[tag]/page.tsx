@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
+import { localeParam } from "@/app/[locale]/locale-param";
 import { pageParam } from "@/app/[locale]/page-param";
 import { tagHref } from "@/app/[locale]/tag-href";
+import { messages } from "@/messages";
 import { DomainError } from "@/server/errors";
 import { listPublishedPostsByTag } from "@/server/posts";
 import { PageTitle, Pager, PostCard } from "@/ui";
@@ -40,7 +42,8 @@ export async function generateMetadata({
 
 // The published posts with a tag, newest first, one page per ?page=.
 export default async function TagPage({ params, searchParams }: Props) {
-  const { locale, tag } = await params;
+  const { tag } = await params;
+  const locale = localeParam((await params).locale);
   const {
     posts,
     tag: name,
@@ -50,13 +53,16 @@ export default async function TagPage({ params, searchParams }: Props) {
   const href = tagHref(locale);
   return (
     <main>
-      <PageTitle description={`Posts tagged “${name}”`}>#{name}</PageTitle>
+      <PageTitle description={messages[locale].tags.tagged(name)}>
+        #{name}
+      </PageTitle>
       {posts.map(({ language, slug, ...post }) => (
         <PostCard
           key={`${language}/${slug}`}
           href={`/${language}/posts/${slug}`}
           language={language}
           tagHref={href}
+          locale={locale}
           {...post}
         />
       ))}
@@ -65,6 +71,7 @@ export default async function TagPage({ params, searchParams }: Props) {
           page={page}
           pageCount={pageCount}
           hrefFor={(n) => (n === 1 ? href(name) : `${href(name)}?page=${n}`)}
+          locale={locale}
         />
       )}
     </main>

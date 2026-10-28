@@ -17,6 +17,7 @@
 
 .siteName {
   display: inline-flex;
+  margin-right: auto;
   align-items: center;
   gap: var(--space-2);
   color: var(--color-text);
@@ -30,6 +31,20 @@
   height: 1.1em;
   border-radius: var(--radius-sm);
   background: var(--color-accent-fill);
+}
+
+.search {
+  flex: 0 1 20rem;
+  min-width: 0;
+}
+
+/* On a phone the site name and the language switch share the first row and
+   the search box takes the whole second row. */
+@media (max-width: 639px) {
+  .search {
+    flex-basis: 100%;
+    order: 1;
+  }
 }
 
 .content {

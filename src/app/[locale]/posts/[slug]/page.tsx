@@ -2,15 +2,16 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { cache } from "react";
-import { z } from "zod";
 import { renderMarkdown } from "@/lib";
+import { messages } from "@/messages";
 import {
   listPublicComments,
   messageMaxLength,
   nicknameMaxLength,
 } from "@/server/comments";
 import { DomainError } from "@/server/errors";
-import { getPublishedPost, languages } from "@/server/posts";
+import { getPublishedPost } from "@/server/posts";
+import { localeParam } from "@/app/[locale]/locale-param";
 import { tagHref } from "@/app/[locale]/tag-href";
 import { Card, CommentForm, CommentList, PostMeta, Prose, TagList } from "@/ui";
 import { submitCommentAction } from "./actions";
@@ -21,9 +22,7 @@ type Params = Promise<{ locale: string; slug: string }>;
 // so that a saved change shows at once.
 const loadPost = cache(async (locale: string, slug: string) => {
   await connection();
-  const language = z.enum(languages).safeParse(locale);
-  if (!language.success) notFound();
-  return getPublishedPost(language.data, slug).catch(notFoundIfMissing);
+  return getPublishedPost(localeParam(locale), slug).catch(notFoundIfMissing);
 });
 
 // A post that is not, or no longer, published renders the not-found page.
@@ -53,17 +52,21 @@ export default async function PostPage({ params }: { params: Params }) {
       <Card
         title={post.title}
         backHref={`/${post.language}`}
-        backLabel="All posts"
+        backLabel={messages[post.language].allPosts}
         meta={
           <>
             <PostMeta publishedAt={post.publishedAt} language={post.language} />
-            <TagList tags={post.tags} hrefFor={tagHref(post.language)} />
+            <TagList
+              tags={post.tags}
+              hrefFor={tagHref(post.language)}
+              locale={post.language}
+            />
           </>
         }
       >
         <Prose html={body} />
       </Card>
-      <CommentList comments={comments} />
+      <CommentList comments={comments} locale={post.language} />
       <CommentForm
         submit={submitCommentAction.bind(null, {
           language: post.language,
@@ -71,6 +74,7 @@ export default async function PostPage({ params }: { params: Params }) {
         })}
         nicknameMaxLength={nicknameMaxLength}
         messageMaxLength={messageMaxLength}
+        locale={post.language}
       />
     </main>
   );

@@ -48,14 +48,15 @@ All application code lives under `src/`.
 
 | Module | Owns | May depend on |
 | --- | --- | --- |
-| `app/` | Next.js routes only: `app/[locale]/` public pages, `app/admin/` owner admin, `app/api/v1/` token API, `/media/` uploaded images, `/healthz`, `/missing` (the proxy's not-found target). Parses input, checks access, calls services, renders | `server`, `ui`, `contract`, `lib` |
-| `server/<domain>/` | Domain logic and persistence, one folder per domain: `posts`, `auth` (owner sessions), `tokens`, `health` (readiness for `/healthz`), `media` (uploaded images), `comments` (reader comments and their rate limit). Each exposes its services through `index.ts` | `server/db`, other domains' `index.ts`, `contract`, `lib` |
+| `app/` | Next.js routes only: `app/[locale]/` public pages, `app/admin/` owner admin, `app/api/v1/` token API, `/media/` uploaded images, `/healthz`, `/missing` (the proxy's not-found target). Parses input, checks access, calls services, renders | `server`, `ui`, `contract`, `lib`, `messages` |
+| `server/<domain>/` | Domain logic and persistence, one folder per domain: `posts`, `auth` (owner sessions), `tokens`, `health` (readiness for `/healthz`), `media` (uploaded images), `comments` (reader comments and their rate limit). Each exposes its services through `index.ts` | `server/db`, other domains' `index.ts`, `contract`, `lib`, `messages` |
 | `proxy.ts`, `instrumentation.ts` | Next.js root hooks: the proxy redirects signed-out admin requests and rewrites a public URL whose first segment is not a language, or any URL whose path holds a malformed percent-encoding (admin and `/media` included), to the static `/missing` route, which shows the not-found page in the default language's frame (Next.js matches a rewrite target's pattern against the original path and fails with a 500 on a param it cannot decode, so the target has no dynamic segment; other top-level routes outside the languages, such as `/healthz` and `/api`, are excluded in its matcher); `register()` creates the owner at server start | Same as `app/` |
 | `server/errors` | `DomainError` and its codes, shared by all domains | — |
 | `server/db` | The Prisma client | — |
 | `contract/` | zod schemas and types of the HTTP API | — |
 | `lib/` | Pure functions: Markdown rendering, slugs, excerpts | — |
-| `ui/` | Presentational React components and their CSS Modules, plus the global design tokens (`ui/tokens.css`); no data access | `lib` |
+| `messages/` | The public interface's text in each language, one file per language; text only, because client components import it | — |
+| `ui/` | Presentational React components and their CSS Modules, plus the global design tokens (`ui/tokens.css`); no data access | `lib`, `messages` |
 | `mcp/` | The stdio MCP server; reaches the blog only over HTTP | `contract` |
 
 Dependencies point inward toward domain logic. Only `server/` imports Prisma,
@@ -268,19 +269,29 @@ tags of drafts and trashed posts never reach readers.
   secrets are compared by hash ([0002](../decisions/0002-built-in-owner-sessions-and-api-tokens.md)).
 - **Logging:** one line per request and per unexpected error to stdout. Never
   log passwords, tokens, cookies, or reader IP addresses.
-- **Language:** public routes live under `/<locale>/` with `zh` and `en`;
-  `SITE_DEFAULT_LANGUAGE` picks the target of `/` and the language preselected
-  for a new post. Interface translation and the language switch arrive in M5 ([0004](../decisions/0004-language-prefixed-urls-and-translation-groups.md)).
-  The admin is English only.
+- **Language:** public routes live under `/<locale>/` with `zh` and `en`, and
+  the locale segment is the page's interface language;
+  `SITE_DEFAULT_LANGUAGE` picks the target of `/`, the language of the proxy's
+  not-found page, and the language preselected for a new post ([0004](../decisions/0004-language-prefixed-urls-and-translation-groups.md)).
+  Every public interface string comes from the typed message files in
+  `messages/`, one per language; routes pass the locale to `ui/`
+  components, which look their text up there ([0006](../decisions/0006-typed-interface-messages.md)).
+  A service refusal shown on a public page carries a reason key whose text is
+  in the message files (`CommentRefused`). Links on a page keep its language,
+  except links to a post, whose URL holds the post's own language. The header's
+  language switch (`LanguageSwitch`) leads to the equivalent page in the other
+  language: home, the same tag page, or the same search; from a post or a page
+  that is not found it leads to that language's home page, and paging starts
+  over. `app/[locale]/` computes the targets from the current URL in a client
+  component, because the layout does not render again on navigation. The
+  admin is English only.
 
 ## Visual design
 
 The approved direction is B (technical): cool neutral surfaces, white cards on
 a light gray page, a blue accent, compact language labels, and dark code
 blocks. Reference mockups: [light](visual/direction-b-light.png) and
-[dark](visual/direction-b-dark.png). The language switch and the Chinese
-interface labels they show arrive in M5; until then the interface text is
-English.
+[dark](visual/direction-b-dark.png).
 
 - **Tokens:** `src/ui/tokens.css` defines every color, spacing step, radius,
   font stack, and font size as a CSS custom property, with a dark set under
@@ -290,14 +301,18 @@ English.
 - **Fonts:** system stacks only — sans (`-apple-system`, `PingFang SC`,
   `Segoe UI`, `Microsoft YaHei`, sans-serif) for text and headings, and a
   monospace stack for code.
-- **Frames:** the public frame (`SiteFrame`: header with the site name, a
-  content column of about 860 px, footer), the admin frame (`AdminFrame`:
+- **Frames:** the public frame (`SiteFrame`: header with the site name, the
+  search box, and the language switch, which share the first row on a phone
+  while the search box takes the second; a content column of about 860 px;
+  footer), the admin frame (`AdminFrame`:
   dark top bar with navigation and sign-out, full-width work area), and the
   sign-in frame (`SignInFrame`: a centered card). `AdminFrame` marks the
   current section, which `app/` derives from the pathname and passes in.
 - **Components in `ui/`:** `PostCard`, `PostMeta` (date and language label),
   `Card` (a page's main content with a back link and title), `PageTitle`
   (with an optional line and actions below and beside it), `LanguageLabel`,
+  `LanguageSwitch` (the header's segmented choice of interface language, each
+  language named in itself),
   `Prose` (rendered Markdown, including code, quotes, lists, and tables),
   `Pager`, `Button` and `ButtonLink`, `StatusBadge`, `Field` (labelled inputs
   and errors), `TagField` (a post's tags as removable chips with an input that
@@ -380,6 +395,5 @@ account comes from `.env`. Development uses `npm run dev` against the Compose
 | Decision | Needed by | Current default |
 | --- | --- | --- |
 | Search index | M3 | `ILIKE` without an index; add `pg_trgm` only if measured latency requires it |
-| Interface translation library and language switch | M5 | English interface text; candidate next-intl ([0004](../decisions/0004-language-prefixed-urls-and-translation-groups.md)) |
 | Whether a language-filtered list shows posts that exist only in the other language | M5 | None (PRD open question) |
 | Language of a first visit | M5 | `/` redirects to `SITE_DEFAULT_LANGUAGE` (PRD open question) |
