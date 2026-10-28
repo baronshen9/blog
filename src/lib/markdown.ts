@@ -53,10 +53,11 @@ const codeTheme = createCssVariablesTheme({ variablePrefix: "--color-code-" });
 // first use; unknown ones render as plain text. Highlighting colors are the
 // --color-code-* design tokens, one dark set for both color schemes.
 //
-// remark-rehype already prefixes the footnote IDs with `user-content-` against
-// DOM clobbering, in the IDs and the links to them alike; with raw HTML
-// dropped, no other IDs or names reach the sanitizer, so it must not prefix
-// the IDs a second time, which would break the links.
+// remark-rehype already prefixes the footnote and reference IDs with
+// `user-content-` against DOM clobbering, in the IDs and the links to them
+// alike; its only other ID is the fixed `footnote-label` of the footnote
+// heading. With raw HTML dropped, no other IDs or names reach the sanitizer,
+// so it must not prefix the IDs a second time, which would break the links.
 function processor(footnotes: FootnoteText | undefined) {
   return unified()
     .use(remarkParse)
