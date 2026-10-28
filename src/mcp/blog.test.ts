@@ -1,4 +1,10 @@
-import { mkdtemp, truncate, writeFile } from "node:fs/promises";
+import {
+  type FileHandle,
+  mkdtemp,
+  open,
+  truncate,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -300,6 +306,35 @@ test("upload_image never reads past the limit when the file grows after its size
     text: "This file is over 5 MB; images can be at most 5 MB.",
   });
   expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+test("upload_image closes the file when checking it fails", async () => {
+  const { file } = await localFile("figure.png", new Uint8Array([1]));
+  const probe = await open(file);
+  const handles: FileHandle = Object.getPrototypeOf(probe);
+  await probe.close();
+  const checked: FileHandle[] = [];
+  const stat = vi.spyOn(handles, "stat").mockImplementationOnce(function (
+    this: FileHandle,
+  ) {
+    checked.push(this);
+    return Promise.reject(
+      Object.assign(new Error("injected failure"), { code: "EIO" }),
+    );
+  });
+  const { call, fetch } = await connect(() => json(uploaded, 201));
+
+  try {
+    expect(await call("upload_image", { file })).toEqual({
+      isError: true,
+      text: `The file at ${file} cannot be read: injected failure`,
+    });
+    // A closed handle has no file descriptor.
+    expect(checked.map((handle) => handle.fd)).toEqual([-1]);
+    expect(fetch).not.toHaveBeenCalled();
+  } finally {
+    stat.mockRestore();
+  }
 });
 
 test("upload_image reports a local file it cannot read without calling the blog", async () => {

@@ -178,9 +178,8 @@ const tools: BlogTool[] = [
     // so a file too large to upload is never held in memory, even one that
     // grows or is replaced after the check.
     call: async ({ file, alt }, get) => {
-      const handle = await openLocalFile(file);
+      const { handle, size } = await openLocalFile(file);
       try {
-        const { size } = await handle.stat();
         const { maxBytes } = await get("/images/limits", imageLimitsResponse);
         if (size > maxBytes) throw tooLarge(megabytes(size), maxBytes);
         const bytes = await readAtMost(handle, maxBytes + 1).catch(
@@ -291,10 +290,13 @@ function describeArguments(error: z.ZodError): string {
 // refusal from the blog, in a sentence for the owner.
 class ToolFailure extends Error {}
 
-// A handle on a regular file on the owner's machine. Anything else is
-// refused: a device or pipe could stream without end. Opened without blocking,
-// so a pipe with no writer is refused rather than waited on.
-async function openLocalFile(file: string): Promise<FileHandle> {
+// A handle on a regular file on the owner's machine, and its size. Anything
+// else is refused: a device or pipe could stream without end. Opened without
+// blocking, so a pipe with no writer is refused rather than waited on. The
+// handle is closed here unless it is returned.
+async function openLocalFile(
+  file: string,
+): Promise<{ handle: FileHandle; size: number }> {
   if (!isAbsolute(file)) {
     throw new ToolFailure(
       `"${file}" is not an absolute path. Give the full path of the image file on this machine.`,
@@ -306,13 +308,21 @@ async function openLocalFile(file: string): Promise<FileHandle> {
   ).catch((error: unknown) => {
     throw localFileFailure(file, error);
   });
-  const stats = await handle.stat();
-  if (stats.isFile()) return handle;
-  await handle.close();
-  if (stats.isDirectory()) throw localFileFailure(file, { code: "EISDIR" });
-  throw new ToolFailure(
-    `${file} is not a regular file. Give the path of an image file.`,
-  );
+  try {
+    const stats = await handle.stat().catch((error: unknown) => {
+      throw localFileFailure(file, error);
+    });
+    if (stats.isDirectory()) throw localFileFailure(file, { code: "EISDIR" });
+    if (!stats.isFile()) {
+      throw new ToolFailure(
+        `${file} is not a regular file. Give the path of an image file.`,
+      );
+    }
+    return { handle, size: stats.size };
+  } catch (error) {
+    await handle.close();
+    throw error;
+  }
 }
 
 // At most `limit` bytes from the start of the file.
