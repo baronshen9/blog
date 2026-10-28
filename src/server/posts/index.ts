@@ -44,6 +44,11 @@ export type PublishedPost = Pick<
   Post,
   "language" | "title" | "slug" | "bodyMarkdown" | "tags"
 > & { publishedAt: Date };
+// A published post's other language version as readers reach it.
+export type PublishedTranslation = Pick<
+  PublishedPost,
+  "language" | "title" | "slug"
+>;
 export type PublishedPostSummary = Omit<PublishedPost, "bodyMarkdown"> & {
   excerpt: string;
 };
@@ -232,17 +237,28 @@ export async function updatePost(
 }
 
 // A published-post query, the only way public pages read posts: a published
-// post outside the trash, by its URL.
+// post outside the trash, by its URL, with its other language version when
+// that one is published and outside the trash too.
 export async function getPublishedPost(
   language: Language,
   slug: string,
-): Promise<PublishedPost> {
-  const post = await getDb().post.findFirst({
-    where: { language, slug, status: "published", deletedAt: null },
-    select: publishedPostFields,
+): Promise<PublishedPost & { translation: PublishedTranslation | null }> {
+  const { translationGroupId, ...post } =
+    (await getDb().post.findFirst({
+      where: { language, slug, status: "published", deletedAt: null },
+      select: { ...publishedPostFields, translationGroupId: true },
+    })) ?? notFound();
+  if (!post.publishedAt) notFound();
+  const translation = await getDb().post.findFirst({
+    where: {
+      translationGroupId,
+      language: otherLanguage(language),
+      status: "published",
+      deletedAt: null,
+    },
+    select: { language: true, title: true, slug: true },
   });
-  if (!post?.publishedAt) notFound();
-  return { ...post, publishedAt: post.publishedAt };
+  return { ...post, publishedAt: post.publishedAt, translation };
 }
 
 // A published-post query for what readers attach to a post, such as a
@@ -259,52 +275,62 @@ export async function getPublishedPostId(
   return post.id;
 }
 
-// A published-post query: one page of published posts outside the trash,
-// newest publication first, in every language until M5 decides which posts a
-// language's list shows. Pages count from 1; the first page exists even when
-// it is empty, and a page past the last is not found.
+// A published-post query: one page of the published posts outside the trash
+// that a language's list shows, newest publication first. A list shows each
+// translation group once: its version in the language when that is published,
+// otherwise its published version in the other language. Pages count from 1;
+// the first page exists even when it is empty, and a page past the last is not
+// found.
 export async function listPublishedPosts(
+  language: Language,
   page: number,
 ): Promise<PublishedPostPage> {
-  return publishedPostPage(page);
+  return publishedPostPage(language, page);
 }
 
 // A published-post query: one page of the published posts outside the trash
-// whose title or body contains the query, ignoring case, ordered and paged
-// like listPublishedPosts. A substring match finds Chinese words, which have
-// no spaces between them, as reliably as English ones. A query of only
-// spaces is refused, because every post contains the empty string.
+// in a language's list whose title or body contains the query, ignoring case,
+// ordered and paged like listPublishedPosts. A substring match
+// finds Chinese words, which have no spaces between them, as reliably as
+// English ones. A query of only spaces is refused, because every post
+// contains the empty string.
 export async function searchPublishedPosts(
+  language: Language,
   query: string,
   page: number,
 ): Promise<PublishedPostPage> {
   const text = query.trim();
   if (!text) throw new DomainError("VALIDATION", "Enter a word to search for.");
-  return publishedPostPage(page, { search: text });
+  return publishedPostPage(language, page, { search: text });
 }
 
 // A published-post query: one page of the published posts outside the trash
-// that carry the tag, ordered and paged like listPublishedPosts, with the
-// tag's canonical name. The name is compared normalized, so any spelling of a
-// tag finds it. A tag no published post carries does not exist for readers:
-// it is not found, as is any page of it.
+// in a language's list that carry the tag, ordered and paged like
+// listPublishedPosts, with the tag's canonical name. The name is compared
+// normalized, so any spelling of a tag finds it. A tag that no post in the
+// language's list carries does not exist there: it is not found, as is any
+// page of it.
 export async function listPublishedPostsByTag(
+  language: Language,
   tag: string,
   page: number,
 ): Promise<PublishedPostPage & { tag: string }> {
   const name = normalizeTag(tag);
-  const result = await publishedPostPage(page, { tag: name });
+  const result = await publishedPostPage(language, page, { tag: name });
   if (result.posts.length === 0) {
     throw new DomainError("NOT_FOUND", "This tag does not exist.");
   }
   return { ...result, tag: name };
 }
 
-// One page of published posts outside the trash, only those containing the
-// search text or carrying the tag when one is given. Prisma passes `contains`
-// to ILIKE unescaped, so LIKE's wildcards and escape character are escaped to
-// match literally.
+// One page of a language's list of published posts outside the trash, only
+// those containing the search text or carrying the tag when one is given. A
+// post in the other language belongs to the list only when its translation
+// group has no published version in the language, whether that version
+// matches or not. Prisma passes `contains` to ILIKE unescaped,
+// so LIKE's wildcards and escape character are escaped to match literally.
 async function publishedPostPage(
+  language: Language,
   page: number,
   { search, tag }: { search?: string; tag?: string } = {},
 ): Promise<PublishedPostPage> {
@@ -312,12 +338,31 @@ async function publishedPostPage(
     contains: search?.replace(/[\\%_]/g, "\\$&"),
     mode: "insensitive",
   } as const;
-  const where = {
+  const matching = {
     status: "published",
     deletedAt: null,
     ...(search && { OR: [{ title: contains }, { bodyMarkdown: contains }] }),
     ...(tag !== undefined && { tags: { has: tag } }),
   } as const;
+  const shownGroups = await getDb().post.findMany({
+    where: { status: "published", deletedAt: null, language },
+    select: { translationGroupId: true },
+  });
+  const where = {
+    AND: [
+      matching,
+      {
+        OR: [
+          { language },
+          {
+            translationGroupId: {
+              notIn: shownGroups.map((post) => post.translationGroupId),
+            },
+          },
+        ],
+      },
+    ],
+  };
   const count = await getDb().post.count({ where });
   const pageCount = Math.max(1, Math.ceil(count / publishedPageSize));
   if (!Number.isSafeInteger(page) || page < 1 || page > pageCount) {

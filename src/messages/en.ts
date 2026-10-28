@@ -12,6 +12,9 @@ export const en = {
   },
   home: { title: "Posts", empty: "No posts yet." },
   allPosts: "All posts",
+  // What a post page says right before the link to its version in a
+  // language, including the space that separates them.
+  translationIn: { zh: "Also in Chinese: ", en: "Also in English: " },
   tags: { label: "Tags", tagged: (tag: string) => `Posts tagged “${tag}”` },
   pager: {
     label: "Pages",

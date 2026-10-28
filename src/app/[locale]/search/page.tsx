@@ -21,9 +21,9 @@ export async function generateMetadata({
 // A missing or repeated ?q= counts as an empty search.
 const queryParam = z.string().catch("");
 
-// Published posts whose title or body contains ?q=, newest first, one page
-// per ?page=. An empty search, the service's only refusal, and a search
-// without matches say so.
+// The published posts in the language's list whose title or body contains
+// ?q=, newest first, one page per ?page=. An empty search, the service's only
+// refusal, and a search without matches say so.
 export default async function SearchPage({
   params,
   searchParams,
@@ -37,14 +37,16 @@ export default async function SearchPage({
   const query = queryParam.parse(search.q);
   const page = pageParam.safeParse(search.page);
   if (!page.success) notFound();
-  const result = await searchPublishedPosts(query, page.data ?? 1).catch(
-    (error: unknown) => {
-      if (!(error instanceof DomainError)) throw error;
-      if (error.code === "NOT_FOUND") notFound();
-      if (error.code === "VALIDATION") return text.enterWord;
-      throw error;
-    },
-  );
+  const result = await searchPublishedPosts(
+    locale,
+    query,
+    page.data ?? 1,
+  ).catch((error: unknown) => {
+    if (!(error instanceof DomainError)) throw error;
+    if (error.code === "NOT_FOUND") notFound();
+    if (error.code === "VALIDATION") return text.enterWord;
+    throw error;
+  });
   if (typeof result === "string") {
     return (
       <main>

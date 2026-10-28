@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { marker, signIn } from "./owner";
+import { createToken, marker, signIn } from "./owner";
 
 test("the owner adds a translation that is drafted and published on its own", async ({
   page,
@@ -53,4 +53,63 @@ test("the owner adds a translation that is drafted and published on its own", as
   await page.getByRole("button", { name: "Move to trash" }).click();
   await expect(page).toHaveURL(/\/admin$/);
   expect((await page.goto(translatedUrl))?.status()).toBe(200);
+});
+
+test("readers move between a post's published language versions", async ({
+  page,
+  request,
+}) => {
+  const stamp = marker();
+  await signIn(page);
+  const headers = {
+    authorization: `Bearer ${await createToken(page, `Translation link ${stamp}`)}`,
+  };
+  const created = await request.post("/api/v1/posts", {
+    headers,
+    data: { language: "en", title: `Linked ${stamp}`, bodyMarkdown: "Body" },
+  });
+  const source = await created.json();
+  const added = await request.post(`/api/v1/posts/${source.id}/translations`, {
+    headers,
+    data: { title: `链接 ${stamp}`, bodyMarkdown: "正文" },
+  });
+  const translation = await added.json();
+  const setStatus = (id: string, status: string) =>
+    request.patch(`/api/v1/posts/${id}`, { headers, data: { status } });
+  await setStatus(source.id, "published");
+
+  const main = page.getByRole("main");
+  const switchTo = (name: string) =>
+    page
+      .getByRole("navigation", { name: /^(Language|语言)$/ })
+      .getByRole("link", { name });
+
+  // A draft translation is neither linked nor the switch's target.
+  await page.goto(`/en/posts/${source.slug}`);
+  await expect(main.getByText(`Linked ${stamp}`)).toBeVisible();
+  await expect(main.getByText("Also in Chinese:")).toHaveCount(0);
+  await expect(switchTo("中文")).toHaveAttribute("href", "/zh");
+
+  // Once published, each version links to the other, labeled in its page's
+  // language, and the switch leads there too.
+  await setStatus(translation.id, "published");
+  await page.reload();
+  await expect(main.getByText(`Also in Chinese: 链接 ${stamp}`)).toBeVisible();
+  await main.getByRole("link", { name: `链接 ${stamp}` }).click();
+  await expect(page).toHaveURL(`/zh/posts/${translation.slug}`);
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh");
+  await expect(main.getByText(`另有英文版：Linked ${stamp}`)).toBeVisible();
+  await switchTo("English").click();
+  await expect(page).toHaveURL(`/en/posts/${source.slug}`);
+  await expect(switchTo("中文")).toHaveAttribute(
+    "href",
+    `/zh/posts/${translation.slug}`,
+  );
+
+  // A trashed translation is no longer linked.
+  await request.delete(`/api/v1/posts/${translation.id}`, { headers });
+  await page.reload();
+  await expect(main.getByText(`Linked ${stamp}`)).toBeVisible();
+  await expect(main.getByText("Also in Chinese:")).toHaveCount(0);
+  await expect(switchTo("中文")).toHaveAttribute("href", "/zh");
 });

@@ -146,6 +146,9 @@ replaces all of a post's tags.
    the post through the `posts` published-post query.
 2. Missing, draft, or trashed posts render the not-found page.
 3. The body is rendered from Markdown on each request.
+4. When the post's other language version is published and outside the
+   trash, the query names it and the page links to it below the post's date
+   and language (M5).
 
 **Reader browses the home page**
 
@@ -153,8 +156,12 @@ replaces all of a post's tags.
 2. `app/[locale]` lists published posts through the `posts` published-post
    query: newest first publication first, with a plain-text excerpt from
    `lib`, ten per page (`?page=`); a page past the last is not found.
-3. Until M5 decides language filtering, both locales list posts of every
-   language, each linking to its own `/<language>/posts/<slug>`.
+3. A language's list shows each translation group once: its version in that
+   language when published, otherwise its published version in the other
+   language, which the card's language label marks. The list is ordered and
+   paged by the shown versions. Each card links to the post's own
+   `/<language>/posts/<slug>`, so a post that exists only in the other
+   language opens in that language (US-13's one exception).
 
 **Owner uploads an image (M3)**
 
@@ -237,10 +244,13 @@ it before reading the file; it accepts regular files only.
 **Search (M3)** matches the query as a case-insensitive substring (`ILIKE`,
 with its wildcards escaped) against title and body of published posts; there
 is no separate search service. The header of every public page submits `?q=`
-to `/<locale>/search`, which lists matches like the home page.
+to `/<locale>/search`, which lists the matches among the posts of the
+language's list, like the home page.
 
 **Tag pages (M3)** at `/<locale>/tags/<tag>` (the name percent-encoded) list
-the published posts carrying the tag, compared normalized, like the home page.
+the posts of the language's list carrying the tag, compared normalized, like
+the home page; a tag that only the other-language versions of translated posts
+carry is not found in that language.
 Post lists, search results, and the post page show each published post's tags
 as links to these pages. A tag no published post carries is not found, so the
 tags of drafts and trashed posts never reach readers.
@@ -280,10 +290,13 @@ tags of drafts and trashed posts never reach readers.
   in the message files (`CommentRefused`). Links on a page keep its language,
   except links to a post, whose URL holds the post's own language. The header's
   language switch (`LanguageSwitch`) leads to the equivalent page in the other
-  language: home, the same tag page, or the same search; from a post or a page
-  that is not found it leads to that language's home page, and paging starts
-  over. `app/[locale]/` computes the targets from the current URL in a client
-  component, because the layout does not render again on navigation. The
+  language: home, the same tag page, or the same search; from a post, to its
+  published translation; from a post without one or a page that is not found,
+  to that language's home page; paging starts over. `app/[locale]/` computes
+  the targets from the current URL in a client component, because the layout
+  does not render again on navigation; a post page tells that component its
+  translation once it runs in the browser, and the page's own link to the
+  translation serves readers before then. The
   admin is English only.
 
 ## Visual design
@@ -395,5 +408,5 @@ account comes from `.env`. Development uses `npm run dev` against the Compose
 | Decision | Needed by | Current default |
 | --- | --- | --- |
 | Search index | M3 | `ILIKE` without an index; add `pg_trgm` only if measured latency requires it |
-| Whether a language-filtered list shows posts that exist only in the other language | M5 | None (PRD open question) |
-| Language of a first visit | M5 | `/` redirects to `SITE_DEFAULT_LANGUAGE` (PRD open question) |
+| Whether a language-filtered list shows posts that exist only in the other language | M5 | Decided at M5 planning: yes, with their language label, each translation group once (Reader browses the home page) |
+| Language of a first visit | M5 | Decided at M5 planning: `/` redirects to `SITE_DEFAULT_LANGUAGE` |
