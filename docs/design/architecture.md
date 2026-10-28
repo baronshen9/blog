@@ -146,6 +146,9 @@ replaces all of a post's tags.
    the post through the `posts` published-post query.
 2. Missing, draft, or trashed posts render the not-found page.
 3. The body is rendered from Markdown on each request.
+4. When the post's other language version is published and outside the
+   trash, the query names it and the page links to it below the post's date
+   and language (M5).
 
 **Reader browses the home page**
 
@@ -280,10 +283,13 @@ tags of drafts and trashed posts never reach readers.
   in the message files (`CommentRefused`). Links on a page keep its language,
   except links to a post, whose URL holds the post's own language. The header's
   language switch (`LanguageSwitch`) leads to the equivalent page in the other
-  language: home, the same tag page, or the same search; from a post or a page
-  that is not found it leads to that language's home page, and paging starts
-  over. `app/[locale]/` computes the targets from the current URL in a client
-  component, because the layout does not render again on navigation. The
+  language: home, the same tag page, or the same search; from a post, to its
+  published translation; from a post without one or a page that is not found,
+  to that language's home page; paging starts over. `app/[locale]/` computes
+  the targets from the current URL in a client component, because the layout
+  does not render again on navigation; a post page tells that component its
+  translation once it runs in the browser, and the page's own link to the
+  translation serves readers before then. The
   admin is English only.
 
 ## Visual design

@@ -44,6 +44,11 @@ export type PublishedPost = Pick<
   Post,
   "language" | "title" | "slug" | "bodyMarkdown" | "tags"
 > & { publishedAt: Date };
+// A published post's other language version as readers reach it.
+export type PublishedTranslation = Pick<
+  PublishedPost,
+  "language" | "title" | "slug"
+>;
 export type PublishedPostSummary = Omit<PublishedPost, "bodyMarkdown"> & {
   excerpt: string;
 };
@@ -232,17 +237,28 @@ export async function updatePost(
 }
 
 // A published-post query, the only way public pages read posts: a published
-// post outside the trash, by its URL.
+// post outside the trash, by its URL, with its other language version when
+// that one is published and outside the trash too.
 export async function getPublishedPost(
   language: Language,
   slug: string,
-): Promise<PublishedPost> {
-  const post = await getDb().post.findFirst({
-    where: { language, slug, status: "published", deletedAt: null },
-    select: publishedPostFields,
+): Promise<PublishedPost & { translation: PublishedTranslation | null }> {
+  const { translationGroupId, ...post } =
+    (await getDb().post.findFirst({
+      where: { language, slug, status: "published", deletedAt: null },
+      select: { ...publishedPostFields, translationGroupId: true },
+    })) ?? notFound();
+  if (!post.publishedAt) notFound();
+  const translation = await getDb().post.findFirst({
+    where: {
+      translationGroupId,
+      language: otherLanguage(language),
+      status: "published",
+      deletedAt: null,
+    },
+    select: { language: true, title: true, slug: true },
   });
-  if (!post?.publishedAt) notFound();
-  return { ...post, publishedAt: post.publishedAt };
+  return { ...post, publishedAt: post.publishedAt, translation };
 }
 
 // A published-post query for what readers attach to a post, such as a
