@@ -524,7 +524,7 @@ test("pages through a language's list counting each group once", async () => {
   });
 });
 
-test("search and tag pages show a group's other version when only it matches", async () => {
+test("search and tag pages show a group only in the version its list shows", async () => {
   const post = await publishOn(1, {
     ...draft,
     title: "Deploying",
@@ -534,6 +534,12 @@ test("search and tag pages show a group's other version when only it matches", a
   const translation = await translateOn(2, post, "部署");
   await updatePost(translation.id, {
     bodyMarkdown: "在本机运行",
+    tags: ["运维"],
+  });
+  await publishOn(3, {
+    language: "zh",
+    title: "只有中文",
+    bodyMarkdown: "在本机",
     tags: ["运维"],
   });
 
@@ -547,13 +553,16 @@ test("search and tag pages show a group's other version when only it matches", a
     );
 
   expect(await search("en", "deploy")).toEqual(["Deploying"]);
-  expect(await search("en", "本机")).toEqual(["部署"]);
-  expect(await search("zh", "deploy")).toEqual(["Deploying"]);
-  expect(await search("zh", "部署")).toEqual(["部署"]);
+  expect(await search("en", "本机")).toEqual(["只有中文"]);
+  expect(await search("zh", "deploy")).toEqual([]);
+  expect(await search("zh", "本机")).toEqual(["只有中文", "部署"]);
   expect(await tagged("en", "ops")).toEqual(["Deploying"]);
-  expect(await tagged("en", "运维")).toEqual(["部署"]);
-  expect(await tagged("zh", "ops")).toEqual(["Deploying"]);
-  expect(await tagged("zh", "运维")).toEqual(["部署"]);
+  expect(await tagged("en", "运维")).toEqual(["只有中文"]);
+  expect(await tagged("zh", "运维")).toEqual(["只有中文", "部署"]);
+  // A tag only hidden versions carry does not exist in that language.
+  await expect(listPublishedPostsByTag("zh", "ops", 1)).rejects.toMatchObject({
+    code: "NOT_FOUND",
+  });
 });
 
 test("never lists drafts, unpublished, or trashed posts", async () => {

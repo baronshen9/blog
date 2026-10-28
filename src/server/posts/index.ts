@@ -273,8 +273,8 @@ export async function listPublishedPosts(
 }
 
 // A published-post query: one page of the published posts outside the trash
-// whose title or body contains the query, ignoring case, shown, ordered, and
-// paged like listPublishedPosts among the posts that match. A substring match
+// in a language's list whose title or body contains the query, ignoring case,
+// ordered and paged like listPublishedPosts. A substring match
 // finds Chinese words, which have no spaces between them, as reliably as
 // English ones. A query of only spaces is refused, because every post
 // contains the empty string.
@@ -289,10 +289,11 @@ export async function searchPublishedPosts(
 }
 
 // A published-post query: one page of the published posts outside the trash
-// that carry the tag, shown, ordered, and paged like listPublishedPosts among
-// the posts that carry it, with the tag's canonical name. The name is compared
-// normalized, so any spelling of a tag finds it. A tag no published post
-// carries does not exist for readers: it is not found, as is any page of it.
+// in a language's list that carry the tag, ordered and paged like
+// listPublishedPosts, with the tag's canonical name. The name is compared
+// normalized, so any spelling of a tag finds it. A tag that no post in the
+// language's list carries does not exist there: it is not found, as is any
+// page of it.
 export async function listPublishedPostsByTag(
   language: Language,
   tag: string,
@@ -308,8 +309,9 @@ export async function listPublishedPostsByTag(
 
 // One page of a language's list of published posts outside the trash, only
 // those containing the search text or carrying the tag when one is given. A
-// post in the other language is shown only when no post of its translation
-// group in the language matches. Prisma passes `contains` to ILIKE unescaped,
+// post in the other language belongs to the list only when its translation
+// group has no published version in the language, whether that version
+// matches or not. Prisma passes `contains` to ILIKE unescaped,
 // so LIKE's wildcards and escape character are escaped to match literally.
 async function publishedPostPage(
   language: Language,
@@ -327,7 +329,7 @@ async function publishedPostPage(
     ...(tag !== undefined && { tags: { has: tag } }),
   } as const;
   const shownGroups = await getDb().post.findMany({
-    where: { ...matching, language },
+    where: { status: "published", deletedAt: null, language },
     select: { translationGroupId: true },
   });
   const where = {

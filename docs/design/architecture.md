@@ -241,13 +241,13 @@ it before reading the file; it accepts regular files only.
 **Search (M3)** matches the query as a case-insensitive substring (`ILIKE`,
 with its wildcards escaped) against title and body of published posts; there
 is no separate search service. The header of every public page submits `?q=`
-to `/<locale>/search`, which lists matches like the home page: among the
-matching posts, each translation group once, preferring the page's language.
+to `/<locale>/search`, which lists the matches among the posts of the
+language's list, like the home page.
 
 **Tag pages (M3)** at `/<locale>/tags/<tag>` (the name percent-encoded) list
-the published posts carrying the tag, compared normalized, like the home page:
-among the posts carrying it, each translation group once, preferring the page's
-language.
+the posts of the language's list carrying the tag, compared normalized, like
+the home page; a tag that only the other-language versions of translated posts
+carry is not found in that language.
 Post lists, search results, and the post page show each published post's tags
 as links to these pages. A tag no published post carries is not found, so the
 tags of drafts and trashed posts never reach readers.
