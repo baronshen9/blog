@@ -15,6 +15,37 @@ export type FootnoteText = {
   backToReference: (reference: string) => string;
 };
 
+// A Markdown node, as far as footnote numbering reads it.
+type MarkdownNode = {
+  type: string;
+  identifier?: string;
+  label?: string | null;
+  children?: MarkdownNode[];
+};
+
+// Renames each footnote to its number in order of first appearance. Footnote
+// IDs come from the names, and a repeated reference adds "-2", so a name such
+// as "a-2" could otherwise collide with the second reference to "a".
+function numberFootnotes() {
+  return (tree: MarkdownNode) => {
+    const numbers = new Map<string, string>();
+    const visit = (node: MarkdownNode) => {
+      if (
+        (node.type === "footnoteReference" ||
+          node.type === "footnoteDefinition") &&
+        node.identifier !== undefined
+      ) {
+        const number = numbers.get(node.identifier) ?? String(numbers.size + 1);
+        numbers.set(node.identifier, number);
+        node.identifier = number;
+        node.label = number;
+      }
+      node.children?.forEach(visit);
+    };
+    visit(tree);
+  };
+}
+
 const codeTheme = createCssVariablesTheme({ variablePrefix: "--color-code-" });
 
 // remark-rehype drops raw HTML, and the sanitizer removes unsafe URLs and
@@ -22,14 +53,16 @@ const codeTheme = createCssVariablesTheme({ variablePrefix: "--color-code-" });
 // first use; unknown ones render as plain text. Highlighting colors are the
 // --color-code-* design tokens, one dark set for both color schemes.
 //
-// remark-rehype already prefixes the footnote IDs with `user-content-` against
-// DOM clobbering, in the IDs and the links to them alike; with raw HTML
-// dropped, no other IDs or names reach the sanitizer, so it must not prefix
-// the IDs a second time, which would break the links.
+// remark-rehype already prefixes the footnote and reference IDs with
+// `user-content-` against DOM clobbering, in the IDs and the links to them
+// alike; its only other ID is the fixed `footnote-label` of the footnote
+// heading. With raw HTML dropped, no other IDs or names reach the sanitizer,
+// so it must not prefix the IDs a second time, which would break the links.
 function processor(footnotes: FootnoteText | undefined) {
   return unified()
     .use(remarkParse)
     .use(remarkGfm)
+    .use(numberFootnotes)
     .use(remarkRehype, {
       footnoteLabel: footnotes?.heading,
       footnoteBackLabel:
