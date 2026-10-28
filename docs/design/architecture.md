@@ -50,7 +50,7 @@ All application code lives under `src/`.
 | --- | --- | --- |
 | `app/` | Next.js routes only: `app/[locale]/` public pages, `app/admin/` owner admin, `app/api/v1/` token API, `/media/` uploaded images, `/healthz`, `/missing` (the proxy's not-found target). Parses input, checks access, calls services, renders | `server`, `ui`, `contract`, `lib`, `messages` |
 | `server/<domain>/` | Domain logic and persistence, one folder per domain: `posts`, `auth` (owner sessions), `tokens`, `health` (readiness for `/healthz`), `media` (uploaded images), `comments` (reader comments and their rate limit). Each exposes its services through `index.ts` | `server/db`, other domains' `index.ts`, `contract`, `lib`, `messages` |
-| `proxy.ts`, `instrumentation.ts` | Next.js root hooks: the proxy redirects signed-out admin requests and rewrites a public URL whose first segment is not a language, or any URL whose path holds a malformed percent-encoding (admin and `/media` included), to the static `/missing` route, which shows the not-found page in the default language's frame (Next.js matches a rewrite target's pattern against the original path and fails with a 500 on a param it cannot decode, so the target has no dynamic segment; other top-level routes outside the languages, such as `/healthz` and `/api`, are excluded in its matcher); `register()` creates the owner at server start | Same as `app/` |
+| `proxy.ts`, `instrumentation.ts` | Next.js root hooks: the proxy redirects signed-out admin requests and rewrites a public URL whose first segment is not a language, or any URL whose path holds a malformed percent-encoding (admin and `/media` included), to the static `/missing` route, which shows the not-found page in the default language's frame (Next.js matches a rewrite target's pattern against the original path and fails with a 500 on a param it cannot decode, so the target has no dynamic segment; other top-level routes outside the languages, such as `/healthz` and `/api`, are excluded in its matcher). An `/api` path reaches the proxy only when it holds a percent sign, because running the proxy makes Next.js buffer the request body; a malformed one gets the API's JSON `VALIDATION` error with status 400; `register()` creates the owner at server start | Same as `app/` |
 | `server/errors` | `DomainError` and its codes, shared by all domains | — |
 | `server/db` | The Prisma client | — |
 | `contract/` | zod schemas and types of the HTTP API | — |
@@ -146,6 +146,9 @@ replaces all of a post's tags.
    the post through the `posts` published-post query.
 2. Missing, draft, or trashed posts render the not-found page.
 3. The body is rendered from Markdown on each request.
+4. When the post's other language version is published and outside the
+   trash, the query names it and the page links to it below the post's date
+   and language (M5).
 
 **Reader browses the home page**
 
@@ -287,10 +290,13 @@ tags of drafts and trashed posts never reach readers.
   in the message files (`CommentRefused`). Links on a page keep its language,
   except links to a post, whose URL holds the post's own language. The header's
   language switch (`LanguageSwitch`) leads to the equivalent page in the other
-  language: home, the same tag page, or the same search; from a post or a page
-  that is not found it leads to that language's home page, and paging starts
-  over. `app/[locale]/` computes the targets from the current URL in a client
-  component, because the layout does not render again on navigation. The
+  language: home, the same tag page, or the same search; from a post, to its
+  published translation; from a post without one or a page that is not found,
+  to that language's home page; paging starts over. `app/[locale]/` computes
+  the targets from the current URL in a client component, because the layout
+  does not render again on navigation; a post page tells that component its
+  translation once it runs in the browser, and the page's own link to the
+  translation serves readers before then. The
   admin is English only.
 
 ## Visual design

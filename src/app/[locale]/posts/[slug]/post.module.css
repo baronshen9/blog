@@ -1,0 +1,15 @@
+/* The line under a post's meta that links to its other language version. */
+.translation {
+  margin: var(--space-3) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.translation a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.translation a:hover {
+  text-decoration: underline;
+}

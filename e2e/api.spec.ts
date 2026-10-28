@@ -13,6 +13,9 @@ test("an assistant publishes a post through the API with the owner's token", asy
   const refused = await request.get("/api/v1/posts");
   expect(refused.status()).toBe(401);
   expect((await refused.json()).error.code).toBe("UNAUTHORIZED");
+  const malformed = await request.get("/api/v1/posts/%E0", { headers });
+  expect(malformed.status()).toBe(400);
+  expect((await malformed.json()).error.code).toBe("VALIDATION");
 
   const created = await request.post("/api/v1/posts", {
     headers,

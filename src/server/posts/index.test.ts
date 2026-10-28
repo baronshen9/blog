@@ -346,6 +346,7 @@ test("publishing makes a post public at its language and slug", async () => {
     bodyMarkdown: "Final",
     tags: [],
     publishedAt: published.publishedAt,
+    translation: null,
   });
   await expect(getPublishedPost("zh", "first-post")).rejects.toMatchObject({
     code: "NOT_FOUND",
@@ -912,4 +913,28 @@ test("publishing, unpublishing, editing, or trashing one version leaves the othe
   await expect(getPost(translation.id)).resolves.toMatchObject({
     translation: { id: source.id, title: "Renamed", trashed: true },
   });
+});
+
+test("a published post names its translation only while that one is published and outside the trash", async () => {
+  const source = await createDraft(draft);
+  await updatePost(source.id, { status: "published" });
+  const translation = await createTranslation(source.id, {
+    title: "第一篇",
+    bodyMarkdown: "",
+  });
+  const named = async () =>
+    (await getPublishedPost("en", source.slug)).translation;
+
+  await expect(named()).resolves.toBeNull();
+  await updatePost(translation.id, { status: "published" });
+  await expect(named()).resolves.toEqual({
+    language: "zh",
+    title: "第一篇",
+    slug: translation.slug,
+  });
+  await expect(getPublishedPost("zh", translation.slug)).resolves.toMatchObject(
+    { translation: { language: "en", slug: source.slug } },
+  );
+  await trashPost(translation.id);
+  await expect(named()).resolves.toBeNull();
 });

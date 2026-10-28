@@ -13,6 +13,7 @@ export const zh: Messages = {
   },
   home: { title: "文章", empty: "还没有文章。" },
   allPosts: "全部文章",
+  translationIn: { zh: "另有中文版：", en: "另有英文版：" },
   tags: { label: "标签", tagged: (tag) => `标签为“${tag}”的文章` },
   pager: {
     label: "分页",
