@@ -57,6 +57,47 @@ function withEmptyLastFrame(gif: Buffer): Buffer {
   return Buffer.concat([gif.subarray(0, lastData), Buffer.from([0x00, 0x3b])]);
 }
 
+// A GIF of one black-and-white frame of the given size whose LZW data holds
+// the given codes. The minimum code size is 2, so code 4 clears the table,
+// code 5 ends the data, and every code is 3 bits wide while the table holds
+// fewer than 8 entries, which is all these frames need.
+function gifWithCodes(width: number, height: number, codes: number[]): Buffer {
+  let bits = 0;
+  let bitCount = 0;
+  const data: number[] = [];
+  for (const code of codes) {
+    bits |= code << bitCount;
+    bitCount += 3;
+    while (bitCount >= 8) {
+      data.push(bits & 0xff);
+      bits >>= 8;
+      bitCount -= 8;
+    }
+  }
+  if (bitCount > 0) data.push(bits);
+  const size = (value: number) => [value & 0xff, value >> 8];
+  return Buffer.from([
+    ...Buffer.from("GIF89a"),
+    ...size(width),
+    ...size(height),
+    0x80, // a global color table of two colors
+    0x00,
+    0x00,
+    ...[0x00, 0x00, 0x00, 0xff, 0xff, 0xff],
+    0x2c,
+    ...size(0),
+    ...size(0),
+    ...size(width),
+    ...size(height),
+    0x00,
+    0x02, // minimum code size
+    data.length,
+    ...data,
+    0x00,
+    0x3b,
+  ]);
+}
+
 const notAnImage = new DomainError(
   "VALIDATION",
   "This file is not an accepted image; upload a PNG, JPEG, GIF, or WebP file.",
@@ -139,6 +180,30 @@ test("refuses animations whose later frame is damaged", async () => {
   }
   for (const bytes of damaged) {
     await expect(uploadImage(bytes)).rejects.toThrow(notAnImage);
+  }
+});
+
+test("accepts a GIF frame whose LZW data ends with its end code", async () => {
+  // Clear, two pixels of color 0, end.
+  const stored = await uploadImage(gifWithCodes(2, 1, [4, 0, 0, 5]));
+  expect(stored.contentType).toBe("image/gif");
+});
+
+test("refuses GIF frames whose LZW data is malformed", async () => {
+  // The decoder accepts each of these frames; only the LZW check refuses them.
+  for (const [width, codes] of [
+    // The data runs out after the last pixel, without an end code.
+    [2, [4, 0, 0]],
+    // An undefined code after the last pixel, before the end code.
+    [1, [4, 0, 7, 5]],
+    // After the last pixel, a clear followed by a code no table holds.
+    [2, [4, 0, 0, 4, 6, 5]],
+    // One pixel more than the frame holds.
+    [2, [4, 0, 0, 0, 5]],
+  ] as const) {
+    await expect(
+      uploadImage(gifWithCodes(width, 1, [...codes])),
+    ).rejects.toThrow(notAnImage);
   }
 });
 

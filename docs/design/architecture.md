@@ -148,9 +148,11 @@ replaces all of a post's tags.
    file with sharp to learn its format, rather than trusting its name or
    declared type, so truncated or corrupt files are refused too. Every frame
    of an animation is decoded, and a GIF's blocks are also checked to be
-   whole, with the trailer after them and every frame's data holding all its
-   pixels, because the decoder shows a frame whose data ends early with the
-   rest blank. SVG is refused
+   whole, with the trailer after them and every frame's data a valid LZW
+   stream that ends with its end-of-information code and holds exactly the
+   frame's pixels, because the decoder shows a frame whose data ends early
+   with the rest blank and ignores a missing end code or an invalid code after
+   the last pixel. SVG is refused
    because it can carry scripts. Every refusal names the reason.
 3. The service writes the file, then its `Image` row, and returns its path;
    the editor inserts `![<file name>](/media/<id>.<extension>)` at the cursor
