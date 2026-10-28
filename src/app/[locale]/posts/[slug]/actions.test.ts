@@ -1,4 +1,4 @@
-import { expect, test, vi } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import { commentRateLimit, listCommentsForModeration } from "@/server/comments";
 import { createDraft, updatePost } from "@/server/posts";
 import { submitCommentAction } from "./actions";
@@ -6,6 +6,10 @@ import { submitCommentAction } from "./actions";
 // The request the action reads its visitor address from.
 const request = vi.hoisted(() => ({ headers: new Headers() }));
 vi.mock("next/headers", () => ({ headers: async () => request.headers }));
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 function commentForm(nickname: string, message: string): FormData {
   const form = new FormData();
@@ -23,6 +27,9 @@ test("refuses a reader over the rate limit and keeps their input", async () => {
   });
   const post = await updatePost(draft.id, { status: "published" });
   request.headers = new Headers({ "x-forwarded-for": "203.0.113.7" });
+  // Every submission falls in one rate-limit window.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(Date.UTC(2026, 9, 27, 12, 0, 0)));
   const submit = (message: string) =>
     submitCommentAction(post, {}, commentForm("Reader", message));
 
