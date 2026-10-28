@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { DomainError } from "@/server/errors";
-import { getPost } from "@/server/posts";
+import { getPost, otherLanguage } from "@/server/posts";
 import { acceptedImageTypes, maxImageBytes } from "@/server/media";
 import { requireOwner } from "@/app/admin/session";
 import { PostEditor } from "@/app/admin/(owner)/posts/post-editor";
@@ -27,6 +27,9 @@ export default async function EditPostPage({
       <PostEditor
         images={{ accept: acceptedImageTypes, maxBytes: maxImageBytes }}
         key={post.id}
+        translation={
+          post.translation ?? { missing: otherLanguage(post.language) }
+        }
         post={{
           status: post.status,
           path: `/${post.language}/posts/${post.slug}`,

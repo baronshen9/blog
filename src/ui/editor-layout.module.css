@@ -71,6 +71,15 @@
   opacity: 1;
 }
 
+.translation {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--color-text-muted);
+}
+
 .path {
   padding: 0.125rem var(--space-2);
   border-radius: var(--radius-sm);

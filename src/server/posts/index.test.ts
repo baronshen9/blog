@@ -2,6 +2,7 @@ import { expect, test } from "vitest";
 import { getDb } from "@/server/db";
 import {
   createDraft,
+  createTranslation,
   deletePostPermanently,
   getPost,
   getPublishedPost,
@@ -666,4 +667,139 @@ test.each([
   if (trashed) await trashPost(post.id);
 
   await expect(change(post.id)).rejects.toMatchObject({ code: "NOT_FOUND" });
+});
+
+test("creates a translation in the other language and links both versions", async () => {
+  const source = await createDraft({ ...draft, tags: ["notes"] });
+
+  const translation = await createTranslation(source.id, {
+    title: "第一篇",
+    bodyMarkdown: "# 你好",
+    tags: ["notes"],
+  });
+
+  expect(translation).toMatchObject({
+    language: "zh",
+    title: "第一篇",
+    status: "draft",
+    tags: ["notes"],
+    publishedAt: null,
+    translation: {
+      id: source.id,
+      language: "en",
+      title: "First post",
+      status: "draft",
+      trashed: false,
+    },
+  });
+  expect(translation.slug).toMatch(/^[0-9a-f]{8}$/);
+  await expect(getPost(source.id)).resolves.toMatchObject({
+    translation: {
+      id: translation.id,
+      language: "zh",
+      title: "第一篇",
+      status: "draft",
+      trashed: false,
+    },
+  });
+  const groups = await getDb().post.findMany({
+    select: { translationGroupId: true },
+  });
+  expect(new Set(groups.map((g) => g.translationGroupId)).size).toBe(1);
+});
+
+test("a post without a translation shows none", async () => {
+  const post = await createDraft(draft);
+
+  expect(post.translation).toBeNull();
+  await expect(getPost(post.id)).resolves.toMatchObject({ translation: null });
+});
+
+test("refuses a translation of a post that has both versions, also in the trash", async () => {
+  const source = await createDraft(draft);
+  const translation = await createTranslation(source.id, {
+    title: "第一篇",
+    bodyMarkdown: "",
+  });
+  await trashPost(translation.id);
+
+  await expect(getPost(source.id)).resolves.toMatchObject({
+    translation: { id: translation.id, trashed: true },
+  });
+  await expect(
+    createTranslation(source.id, { title: "又一篇", bodyMarkdown: "" }),
+  ).rejects.toMatchObject({
+    code: "CONFLICT",
+    message:
+      "This post already has its Chinese version; it may be in the trash.",
+  });
+  await restorePost(translation.id);
+  await expect(
+    createTranslation(translation.id, { title: "Again", bodyMarkdown: "" }),
+  ).rejects.toMatchObject({
+    code: "CONFLICT",
+    message:
+      "This post already has its English version; it may be in the trash.",
+  });
+  await expect(getDb().post.count({ where: { language: "zh" } })).resolves.toBe(
+    1,
+  );
+});
+
+test("concurrent translations of one post create only one", async () => {
+  const source = await createDraft(draft);
+
+  const results = await Promise.allSettled(
+    Array.from({ length: 3 }, () =>
+      createTranslation(source.id, { title: "第一篇", bodyMarkdown: "" }),
+    ),
+  );
+
+  expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+  for (const result of results) {
+    if (result.status === "rejected") {
+      expect(result.reason).toMatchObject({ code: "CONFLICT" });
+    }
+  }
+});
+
+test.each([
+  ["a trashed post", true],
+  ["a missing post", false],
+])("refuses a translation of %s", async (_, trashed) => {
+  const post = await createDraft(draft);
+  if (trashed) await trashPost(post.id);
+  const id = trashed ? post.id : crypto.randomUUID();
+
+  await expect(
+    createTranslation(id, { title: "第一篇", bodyMarkdown: "" }),
+  ).rejects.toMatchObject({ code: "NOT_FOUND" });
+});
+
+test("publishing, unpublishing, editing, or trashing one version leaves the other unchanged", async () => {
+  const source = await createDraft(draft);
+  const translation = await createTranslation(source.id, {
+    title: "第一篇",
+    bodyMarkdown: "# 你好",
+  });
+  // The translation's own fields, without its link to the source.
+  const unchanged = async () => ({
+    ...(await getPost(translation.id)),
+    translation: undefined,
+  });
+  const before = await unchanged();
+
+  await updatePost(source.id, { status: "published" });
+  await updatePost(source.id, { title: "Renamed", bodyMarkdown: "Body" });
+  await updatePost(source.id, { status: "draft" });
+  await updatePost(source.id, { status: "published" });
+  await trashPost(source.id);
+
+  await expect(unchanged()).resolves.toEqual(before);
+  await expect(getPublishedPost("zh", translation.slug)).rejects.toMatchObject({
+    code: "NOT_FOUND",
+  });
+  await expect(getPost(translation.id)).resolves.toMatchObject({
+    translation: { id: source.id, title: "Renamed", trashed: true },
+  });
 });

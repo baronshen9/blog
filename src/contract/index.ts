@@ -28,6 +28,13 @@ export const createPostRequest = z.strictObject({
   tags: tags.optional(),
 });
 
+// POST /posts/{id}/translations: the post's translation, a new draft in its
+// other language linked to it. A post has at most one translation, so a post
+// whose other version exists, even in the trash, is refused with CONFLICT.
+export const createTranslationRequest = createPostRequest.omit({
+  language: true,
+});
+
 // PATCH /posts/{id}: changes only the fields given. `status` publishes or
 // unpublishes; `slug` can change only before the first publication; `tags`
 // replaces the post's tags.
@@ -43,7 +50,8 @@ export const updatePostRequest = z
     message: "Give at least one field to change.",
   });
 
-// GET, POST, and PATCH of a post respond with the post.
+// GET, POST, and PATCH of a post respond with the post. `translation` is its
+// other language version, which may be in the trash, or null when it has none.
 export const postResponse = z.object({
   id: z.uuid(),
   language,
@@ -54,6 +62,15 @@ export const postResponse = z.object({
   status,
   publishedAt: timestamp.nullable(),
   updatedAt: timestamp,
+  translation: z
+    .object({
+      id: z.uuid(),
+      language,
+      title: z.string(),
+      status,
+      trashed: z.boolean(),
+    })
+    .nullable(),
 });
 
 export const postListResponse = z.object({
@@ -103,6 +120,7 @@ export const errorResponse = z.object({
 
 export type ListPostsQuery = z.infer<typeof listPostsQuery>;
 export type CreatePostRequest = z.infer<typeof createPostRequest>;
+export type CreateTranslationRequest = z.infer<typeof createTranslationRequest>;
 export type UpdatePostRequest = z.infer<typeof updatePostRequest>;
 export type PostResponse = z.infer<typeof postResponse>;
 export type PostListResponse = z.infer<typeof postListResponse>;
