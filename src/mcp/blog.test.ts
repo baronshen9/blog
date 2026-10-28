@@ -211,11 +211,16 @@ const uploaded = {
   markdown: "![Figure 1](/media/6f1c2a4e-8b1d-4c3e-9f2a-1b2c3d4e5f60.png)",
 };
 
-// The blog's image API: the size limit, and `upload` for the upload itself.
+// The blog's image API: the size limit, after `beforeLimit` runs, and
+// `upload` for the upload itself.
 const imageApi =
-  (upload: () => Promise<Response>) => (input: string | URL | Request) =>
+  (
+    upload: () => Promise<Response>,
+    beforeLimit: () => Promise<void> = async () => {},
+  ) =>
+  async (input: string | URL | Request) =>
     String(input).endsWith("/api/v1/images/limits")
-      ? json({ maxBytes: 5 * 1024 * 1024 })
+      ? (await beforeLimit(), json({ maxBytes: 5 * 1024 * 1024 }))
       : upload();
 
 test.each([
@@ -273,6 +278,26 @@ test("upload_image refuses a file over the blog's limit from its size, without s
   expect(await call("upload_image", { file })).toEqual({
     isError: true,
     text: "This file is 3072 MB; images can be at most 5 MB.",
+  });
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+test("upload_image never reads past the limit when the file grows after its size check", async () => {
+  const { file } = await localFile("growing.png", new Uint8Array([1, 2, 3]));
+  const { call, fetch } = await connect(
+    imageApi(
+      () => json(uploaded, 201),
+      async () => {
+        // The file grows past the limit between the size check and the read;
+        // sparse, so the test takes no space.
+        await truncate(file, 6 * 1024 * 1024);
+      },
+    ),
+  );
+
+  expect(await call("upload_image", { file })).toEqual({
+    isError: true,
+    text: "This file is over 5 MB; images can be at most 5 MB.",
   });
   expect(fetch).toHaveBeenCalledTimes(1);
 });

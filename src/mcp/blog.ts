@@ -3,7 +3,8 @@
 // the answer into text for the conversation. Content rules live in the API;
 // nothing here decides what a post may be. Node runs this file without a
 // build, so it uses only erasable TypeScript.
-import { readFile, stat } from "node:fs/promises";
+import { constants } from "node:fs";
+import { type FileHandle, open } from "node:fs/promises";
 import { basename, isAbsolute } from "node:path";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import {
@@ -172,24 +173,35 @@ const tools: BlogTool[] = [
           "A short description of the image for readers who cannot see it. Defaults to the file's name without its extension, as in the admin.",
         ),
     }),
-    // The file's size is checked against the blog's limit before the file
-    // is read, so a file too large to upload is never held in memory.
+    // The file is checked and read through one handle: its size against the
+    // blog's limit before reading, and the read stops one byte past the limit,
+    // so a file too large to upload is never held in memory, even one that
+    // grows or is replaced after the check.
     call: async ({ file, alt }, get) => {
-      const size = await localFileSize(file);
-      const { maxBytes } = await get("/images/limits", imageLimitsResponse);
-      if (size > maxBytes) {
-        throw new ToolFailure(
-          `This file is ${megabytes(size)}; images can be at most ${megabytes(maxBytes)}.`,
+      const handle = await openLocalFile(file);
+      try {
+        const { size } = await handle.stat();
+        const { maxBytes } = await get("/images/limits", imageLimitsResponse);
+        if (size > maxBytes) throw tooLarge(megabytes(size), maxBytes);
+        const bytes = await readAtMost(handle, maxBytes + 1).catch(
+          (error: unknown) => {
+            throw localFileFailure(file, error);
+          },
         );
+        if (bytes.length > maxBytes) {
+          throw tooLarge(`over ${megabytes(maxBytes)}`, maxBytes);
+        }
+        return {
+          method: "POST",
+          path: "/images",
+          body: {
+            alt: alt ?? basename(file).replace(/\.[^.]*$/, ""),
+            data: bytes.toString("base64"),
+          },
+        };
+      } finally {
+        await handle.close();
       }
-      return {
-        method: "POST",
-        path: "/images",
-        body: {
-          alt: alt ?? basename(file).replace(/\.[^.]*$/, ""),
-          data: (await readLocalFile(file)).toString("base64"),
-        },
-      };
     },
     response: imageResponse,
   }),
@@ -279,30 +291,51 @@ function describeArguments(error: z.ZodError): string {
 // refusal from the blog, in a sentence for the owner.
 class ToolFailure extends Error {}
 
-// The size of a file on the owner's machine, which is not read. Anything but
-// a regular file is refused: a device or pipe could stream without end.
-async function localFileSize(file: string): Promise<number> {
+// A handle on a regular file on the owner's machine. Anything else is
+// refused: a device or pipe could stream without end. Opened without blocking,
+// so a pipe with no writer is refused rather than waited on.
+async function openLocalFile(file: string): Promise<FileHandle> {
   if (!isAbsolute(file)) {
     throw new ToolFailure(
       `"${file}" is not an absolute path. Give the full path of the image file on this machine.`,
     );
   }
-  const stats = await stat(file).catch((error: unknown) => {
+  const handle = await open(
+    file,
+    constants.O_RDONLY | constants.O_NONBLOCK,
+  ).catch((error: unknown) => {
     throw localFileFailure(file, error);
   });
+  const stats = await handle.stat();
+  if (stats.isFile()) return handle;
+  await handle.close();
   if (stats.isDirectory()) throw localFileFailure(file, { code: "EISDIR" });
-  if (!stats.isFile()) {
-    throw new ToolFailure(
-      `${file} is not a regular file. Give the path of an image file.`,
-    );
-  }
-  return stats.size;
+  throw new ToolFailure(
+    `${file} is not a regular file. Give the path of an image file.`,
+  );
 }
 
-async function readLocalFile(file: string): Promise<Buffer> {
-  return await readFile(file).catch((error: unknown) => {
-    throw localFileFailure(file, error);
-  });
+// At most `limit` bytes from the start of the file.
+async function readAtMost(handle: FileHandle, limit: number): Promise<Buffer> {
+  const buffer = Buffer.alloc(limit);
+  let length = 0;
+  while (length < limit) {
+    const { bytesRead } = await handle.read(
+      buffer,
+      length,
+      limit - length,
+      length,
+    );
+    if (bytesRead === 0) break;
+    length += bytesRead;
+  }
+  return buffer.subarray(0, length);
+}
+
+function tooLarge(size: string, maxBytes: number): ToolFailure {
+  return new ToolFailure(
+    `This file is ${size}; images can be at most ${megabytes(maxBytes)}.`,
+  );
 }
 
 function localFileFailure(file: string, error: unknown): ToolFailure {
