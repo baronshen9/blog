@@ -78,6 +78,27 @@ test("links footnotes and their references to each other", async () => {
   expect(ids.filter(linked).sort()).toEqual([...new Set(targets)].sort());
 });
 
+test("gives every footnote and reference its own ID, whatever the names", async () => {
+  const html = await renderMarkdown(
+    "First[^a], repeat[^a], other[^a-2].\n\n[^a]: First note.\n[^a-2]: Other note.",
+  );
+  const ids = Array.from(html.matchAll(/ id="([^"]+)"/g), ([, id]) => id);
+  expect(new Set(ids).size).toBe(ids.length);
+
+  // Each reference links to its footnote, which links back to that reference.
+  const references = Array.from(
+    html.matchAll(/<a href="#([^"]+)" id="([^"]+)" data-footnote-ref/g),
+    ([, footnote, reference]) => ({ footnote, reference }),
+  );
+  expect(references).toHaveLength(3);
+  for (const { footnote, reference } of references) {
+    const item = new RegExp(`<li id="${footnote}">[\\s\\S]*?</li>`).exec(html);
+    expect(item?.[0]).toContain(`href="#${reference}"`);
+  }
+  expect(html).toContain("First note.");
+  expect(html).toContain("Other note.");
+});
+
 test("labels footnotes in the language of the page", async () => {
   const markdown = "正文[^1]，再引[^1]。\n\n[^1]: 注释";
 

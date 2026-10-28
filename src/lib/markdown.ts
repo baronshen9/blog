@@ -15,6 +15,37 @@ export type FootnoteText = {
   backToReference: (reference: string) => string;
 };
 
+// A Markdown node, as far as footnote numbering reads it.
+type MarkdownNode = {
+  type: string;
+  identifier?: string;
+  label?: string | null;
+  children?: MarkdownNode[];
+};
+
+// Renames each footnote to its number in order of first appearance. Footnote
+// IDs come from the names, and a repeated reference adds "-2", so a name such
+// as "a-2" could otherwise collide with the second reference to "a".
+function numberFootnotes() {
+  return (tree: MarkdownNode) => {
+    const numbers = new Map<string, string>();
+    const visit = (node: MarkdownNode) => {
+      if (
+        (node.type === "footnoteReference" ||
+          node.type === "footnoteDefinition") &&
+        node.identifier !== undefined
+      ) {
+        const number = numbers.get(node.identifier) ?? String(numbers.size + 1);
+        numbers.set(node.identifier, number);
+        node.identifier = number;
+        node.label = number;
+      }
+      node.children?.forEach(visit);
+    };
+    visit(tree);
+  };
+}
+
 const codeTheme = createCssVariablesTheme({ variablePrefix: "--color-code-" });
 
 // remark-rehype drops raw HTML, and the sanitizer removes unsafe URLs and
@@ -30,6 +61,7 @@ function processor(footnotes: FootnoteText | undefined) {
   return unified()
     .use(remarkParse)
     .use(remarkGfm)
+    .use(numberFootnotes)
     .use(remarkRehype, {
       footnoteLabel: footnotes?.heading,
       footnoteBackLabel:
