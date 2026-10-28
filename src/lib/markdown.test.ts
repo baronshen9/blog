@@ -61,3 +61,36 @@ test("keeps the image when the description has code or tag characters", async ()
     '<p><img src="/media/a.png" alt="a &#x60; b <i> c"> Use <code>code</code> here.</p>',
   );
 });
+
+test("links footnotes and their references to each other", async () => {
+  const html = await renderMarkdown(
+    "One[^a], again[^a], and two[^注].\n\n[^a]: First.\n[^注]: Second.",
+  );
+  const values = (pattern: RegExp) =>
+    Array.from(html.matchAll(pattern), ([, value]) => String(value));
+  const targets = values(/href="#([^"]+)"/g);
+  const ids = values(/ id="([^"]+)"/g);
+  const linked = (id: string) => /fn(ref)?-/.test(id);
+
+  // Three references and three links back, each to an element on the page.
+  expect(targets).toHaveLength(6);
+  expect(ids).toEqual(expect.arrayContaining(targets));
+  expect(ids.filter(linked).sort()).toEqual([...new Set(targets)].sort());
+});
+
+test("labels footnotes in the language of the page", async () => {
+  const markdown = "正文[^1]，再引[^1]。\n\n[^1]: 注释";
+
+  const chinese = await renderMarkdown(markdown, {
+    heading: "脚注",
+    backToReference: (reference) => `返回引用 ${reference}`,
+  });
+  expect(chinese).toContain(">脚注</h2>");
+  expect(chinese).toContain('aria-label="返回引用 1"');
+  expect(chinese).toContain('aria-label="返回引用 1-2"');
+
+  const english = await renderMarkdown(markdown);
+  expect(english).toContain(">Footnotes</h2>");
+  expect(english).toContain('aria-label="Back to reference 1"');
+  expect(english).toContain('aria-label="Back to reference 1-2"');
+});

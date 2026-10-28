@@ -15,6 +15,12 @@ export const en = {
   // What a post page says right before the link to its version in a
   // language, including the space that separates them.
   translationIn: { zh: "Also in Chinese: ", en: "Also in English: " },
+  // The heading of a post's footnotes and the label of a link from a footnote
+  // back to a reference to it, such as "1" or "1-2".
+  footnotes: {
+    heading: "Footnotes",
+    backToReference: (reference: string) => `Back to reference ${reference}`,
+  },
   tags: { label: "Tags", tagged: (tag: string) => `Posts tagged “${tag}”` },
   pager: {
     label: "Pages",

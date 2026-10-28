@@ -47,7 +47,7 @@ export default async function PostPage({ params }: { params: Params }) {
   const { locale, slug } = await params;
   const post = await loadPost(locale, slug);
   const [body, comments] = await Promise.all([
-    renderMarkdown(post.bodyMarkdown),
+    renderMarkdown(post.bodyMarkdown, messages[post.language].footnotes),
     listPublicComments(post.language, post.slug).catch(notFoundIfMissing),
   ]);
   return (
