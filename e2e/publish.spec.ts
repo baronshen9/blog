@@ -1,11 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 import { homeCard, marker, signIn } from "./owner";
 
+// The not-found page speaks its URL's language, or the default language.
 async function expectNotFound(page: Page, url: string) {
   const response = await page.goto(url);
   expect(response?.status()).toBe(404);
   await expect(
-    page.getByRole("heading", { name: "Page not found" }),
+    page.getByRole("heading", { name: /^(Page not found|页面不存在)$/ }),
   ).toBeVisible();
 }
 

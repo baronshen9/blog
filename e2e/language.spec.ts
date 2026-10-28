@@ -57,6 +57,7 @@ test("readers switch the interface between Chinese and English", async ({
   await page.goto(`/zh/posts/${chinese}`);
   const form = page.getByRole("region", { name: "发表评论" });
   await form.getByLabel("昵称").fill(`Reader ${mark}`);
+  await form.getByLabel("留言").fill("   ");
   await form.getByRole("button", { name: "发送评论" }).click();
   await expect(form.getByRole("alert")).toHaveText("请输入留言。");
   await switchTo("English").click();
