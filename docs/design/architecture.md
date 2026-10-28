@@ -313,6 +313,11 @@ Integration tests share one Postgres container per run. Test files run one at
 a time, and a Vitest setup file truncates every application table before each
 test, so each test creates the data it needs and writes no cleanup.
 
+Smoke journeys share one running stack and run in parallel. Each marks the
+data it creates with `marker()` from `e2e/owner.ts` (random, never the clock)
+and asserts only on that data, never on global order, counts, or the page that
+lists it; `homeCard()` there finds a journey's post on any home page.
+
 ## Commands
 
 | Command | Purpose | Budget |
