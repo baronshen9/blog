@@ -6,10 +6,12 @@ import {
   deletePostPermanently,
   getPost,
   getPublishedPost,
+  type Language,
   listPosts,
   listPublishedPosts,
   listPublishedPostsByTag,
   listTrashedPosts,
+  type PublishedPostPage,
   publishedPageSize,
   restorePost,
   searchPublishedPosts,
@@ -565,6 +567,66 @@ test("search and tag pages show a group only in the version its list shows", asy
     code: "NOT_FOUND",
   });
 });
+
+test.each([
+  ["list", (language: Language) => listPublishedPosts(language, 1)],
+  ["search", (language: Language) => searchPublishedPosts(language, "ops", 1)],
+  ["tag", (language: Language) => listPublishedPostsByTag(language, "ops", 1)],
+])(
+  "a %s page shows each group once when a version is published during its reads",
+  async (_, read) => {
+    const source = await publishOn(1, {
+      language: "zh",
+      title: "中文",
+      bodyMarkdown: "ops",
+      tags: ["ops"],
+    });
+    const translation = await createTranslation(source.id, {
+      title: "English",
+      bodyMarkdown: "ops",
+      tags: ["ops"],
+    });
+    const shown = (page: PublishedPostPage) => ({
+      titles: page.posts.map((post) => post.title),
+      pageCount: page.pageCount,
+    });
+
+    // The English version is published, through another connection, right
+    // after the page's first database read and before any other.
+    const db = getDb();
+    let publish: (() => Promise<unknown>) | undefined = () =>
+      db.post.update({
+        where: { id: translation.id },
+        data: { status: "published", publishedAt: new Date() },
+      });
+    const globalForDb = globalThis as { blogDb?: unknown };
+    globalForDb.blogDb = db.$extends({
+      query: {
+        async $allOperations({ args, query }) {
+          const result = await query(args);
+          const step = publish;
+          publish = undefined;
+          await step?.();
+          return result;
+        },
+      },
+    });
+    try {
+      // The page shows the whole state from before the publication.
+      expect(shown(await read("en"))).toEqual({
+        titles: ["中文"],
+        pageCount: 1,
+      });
+    } finally {
+      globalForDb.blogDb = db;
+    }
+    expect(publish).toBeUndefined();
+    expect(shown(await read("en"))).toEqual({
+      titles: ["English"],
+      pageCount: 1,
+    });
+  },
+);
 
 test("never lists drafts, unpublished, or trashed posts", async () => {
   await createDraft({ ...draft, title: "Draft" });
