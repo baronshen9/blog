@@ -295,8 +295,9 @@ tags of drafts and trashed posts never reach readers.
   to that language's home page; paging starts over. `app/[locale]/` computes
   the targets from the current URL in a client component, because the layout
   does not render again on navigation; a post page tells that component its
-  translation once it runs in the browser, and the page's own link to the
-  translation serves readers before then. The
+  translation, and a not-found page the home pages, once it runs in the
+  browser, and the post's own link to the translation serves readers before
+  then. The
   admin is English only.
 
 ## Visual design
