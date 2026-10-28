@@ -329,6 +329,8 @@ export async function listPublishedPostsByTag(
 // group has no published version in the language, whether that version
 // matches or not. Prisma passes `contains` to ILIKE unescaped,
 // so LIKE's wildcards and escape character are escaped to match literally.
+// Selecting the groups, counting, and paging read one snapshot, so a version
+// published or unpublished meanwhile cannot show a group twice or not at all.
 async function publishedPostPage(
   language: Language,
   page: number,
@@ -344,37 +346,43 @@ async function publishedPostPage(
     ...(search && { OR: [{ title: contains }, { bodyMarkdown: contains }] }),
     ...(tag !== undefined && { tags: { has: tag } }),
   } as const;
-  const shownGroups = await getDb().post.findMany({
-    where: { status: "published", deletedAt: null, language },
-    select: { translationGroupId: true },
-  });
-  const where = {
-    AND: [
-      matching,
-      {
-        OR: [
-          { language },
+  const { posts, pageCount } = await getDb().$transaction(
+    async (tx) => {
+      const shownGroups = await tx.post.findMany({
+        where: { status: "published", deletedAt: null, language },
+        select: { translationGroupId: true },
+      });
+      const where = {
+        AND: [
+          matching,
           {
-            translationGroupId: {
-              notIn: shownGroups.map((post) => post.translationGroupId),
-            },
+            OR: [
+              { language },
+              {
+                translationGroupId: {
+                  notIn: shownGroups.map((post) => post.translationGroupId),
+                },
+              },
+            ],
           },
         ],
-      },
-    ],
-  };
-  const count = await getDb().post.count({ where });
-  const pageCount = Math.max(1, Math.ceil(count / publishedPageSize));
-  if (!Number.isSafeInteger(page) || page < 1 || page > pageCount) {
-    throw new DomainError("NOT_FOUND", "This page does not exist.");
-  }
-  const posts = await getDb().post.findMany({
-    where,
-    orderBy: [{ publishedAt: "desc" }, { id: "asc" }],
-    skip: (page - 1) * publishedPageSize,
-    take: publishedPageSize,
-    select: publishedPostFields,
-  });
+      };
+      const count = await tx.post.count({ where });
+      const pageCount = Math.max(1, Math.ceil(count / publishedPageSize));
+      if (!Number.isSafeInteger(page) || page < 1 || page > pageCount) {
+        throw new DomainError("NOT_FOUND", "This page does not exist.");
+      }
+      const posts = await tx.post.findMany({
+        where,
+        orderBy: [{ publishedAt: "desc" }, { id: "asc" }],
+        skip: (page - 1) * publishedPageSize,
+        take: publishedPageSize,
+        select: publishedPostFields,
+      });
+      return { posts, pageCount };
+    },
+    { isolationLevel: "RepeatableRead" },
+  );
   return {
     posts: posts.flatMap(({ bodyMarkdown, publishedAt, ...post }) =>
       publishedAt
