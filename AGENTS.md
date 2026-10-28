@@ -32,7 +32,7 @@ Copy `.env.example` to `.env` before running Compose. Node 24 is pinned in
 | `src/server/db/` | The Prisma client (generated into `generated/`, Git-ignored); the only place it is created |
 | `src/contract/` | zod schemas and types of the HTTP API, shared with the MCP server |
 | `src/lib/` | Pure functions: Markdown rendering, slugs, excerpts |
-| `src/messages/` | Public interface text, one file per language; text only (client components import it) |
+| `src/messages/` | Public interface text per language |
 | `src/ui/` | Presentational React components |
 | `src/mcp/` | Stdio MCP server run on the host; talks to the blog over HTTP only |
 | `prisma/` | Schema and committed migrations |
@@ -64,15 +64,13 @@ Copy `.env.example` to `.env` before running Compose. Node 24 is pinned in
 - Style with the design tokens in `src/ui/tokens.css` and CSS Modules next to
   `ui/` components; no raw colors, inline styles, CSS frameworks, or web fonts
   ([0005](docs/decisions/0005-css-modules-and-design-tokens.md)).
-- Every public interface string comes from `src/messages/` in both
-  languages; the admin stays English
-  ([0006](docs/decisions/0006-typed-interface-messages.md)).
 - Pull requests that change a screen include light and dark screenshots of it.
 
 ## Invariants
 
-- Dependency direction: `app → server, ui, contract, lib, messages`;
-  `server → contract, lib, messages`; `ui → lib, messages`; `mcp → contract`. Enforced by ESLint; do not disable it.
+- Dependency direction: `app → server, ui`; `app, server → contract, lib,
+  messages`; `ui → lib, messages`; `mcp → contract`. Enforced by ESLint; do
+  not disable it.
 - Only `src/server/` touches the database, and a domain uses another domain
   only through its `index.ts`.
 - Admin and MCP share the same services; never add content rules to a route,
