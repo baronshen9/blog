@@ -74,6 +74,14 @@ test("readers switch the interface between Chinese and English", async ({
   );
   await expect(switchTo("English")).toHaveAttribute("href", "/en");
 
+  // So does a not-found tag page, although its URL names a tag.
+  await page.goto(`/en/tags/missing-${mark}`);
+  await expect(heading).toHaveText("Page not found");
+  await expect(switchTo("中文")).toHaveAttribute("href", "/zh");
+  await switchTo("中文").click();
+  await expect(page).toHaveURL("/zh");
+  await expect(heading).toHaveText("文章");
+
   // At phone width the switch and the search box both fit the header.
   await page.setViewportSize({ width: 360, height: 740 });
   await page.goto("/zh");
