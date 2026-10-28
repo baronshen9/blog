@@ -122,6 +122,24 @@ replaces all of a post's tags.
    `posts` services as the admin, and returns JSON.
 4. The MCP server turns error responses into plain-language tool results.
 
+**Owner adds a translation (M5)**
+
+1. From a post's editor, which shows its other language version and links to
+   it, the owner starts the translation; the new-post editor opens in the
+   other language, starting from the post's title, body, and tags. Through
+   MCP, the `create_translation` tool calls
+   `POST /api/v1/posts/{id}/translations` with the translated title, body,
+   and tags.
+2. The `posts` service creates the translation like a new draft, in the
+   post's other language and its translation group. A post in the trash has
+   no translation, and a group holds one post per language, trashed posts
+   included, so a post whose other version exists is refused with
+   `CONFLICT`.
+3. Each version keeps its own slug, status, and dates; publishing,
+   unpublishing, editing, or trashing one leaves the other unchanged. Post
+   responses name the other version as `translation` (its id, language, title,
+   status, and whether it is in the trash).
+
 **Reader opens a post**
 
 1. `app/[locale]/posts/[slug]` validates the locale (`zh` or `en`) and loads
@@ -149,9 +167,11 @@ replaces all of a post's tags.
    file with sharp to learn its format, rather than trusting its name or
    declared type, so truncated or corrupt files are refused too. Every frame
    of an animation is decoded, and a GIF's blocks are also checked to be
-   whole, with the trailer after them and every frame's data holding all its
-   pixels, because the decoder shows a frame whose data ends early with the
-   rest blank. SVG is refused
+   whole, with the trailer after them and every frame's data a valid LZW
+   stream that ends with its end-of-information code and holds exactly the
+   frame's pixels, because the decoder shows a frame whose data ends early
+   with the rest blank and ignores a missing end code or an invalid code after
+   the last pixel. SVG is refused
    because it can carry scripts. Every refusal names the reason.
 3. The service writes the file, then its `Image` row, and returns its path;
    the editor inserts `![<file name>](/media/<id>.<extension>)` at the cursor
@@ -304,7 +324,8 @@ blocks. Reference mockups: [light](visual/direction-b-light.png) and
   `ImageUpload` (a button that uploads an image file and reports a refusal
   beside it), `PostTable` (the admin post list), `TrashTable` (the admin
   trash), `TokenTable` (the admin API token list), and `EditorLayout`
-  (Markdown and preview side by side, stacked below 900 px).
+  (Markdown and preview side by side, stacked below 900 px, with the post's
+  other language version beside its address).
 - **Code blocks:** Shiki renders with one dark theme in both color schemes, so
   code looks the same everywhere.
 - **Site name:** read from `SITE_NAME` through `server/config`, default

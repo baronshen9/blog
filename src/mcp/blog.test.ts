@@ -20,6 +20,7 @@ const post: PostResponse = {
   status: "draft",
   publishedAt: null,
   updatedAt: "2026-10-27T00:00:00.000Z",
+  translation: null,
 };
 
 // A connected client whose server answers every API call with `answer`.
@@ -58,6 +59,7 @@ test("offers one tool per post action and an image upload", async () => {
     "list_posts",
     "get_post",
     "create_draft",
+    "create_translation",
     "update_post",
     "publish_post",
     "unpublish_post",
@@ -83,6 +85,13 @@ test.each([
     "POST",
     "/posts",
     { language: "en", title: "Hello", bodyMarkdown: "Hi", tags: ["Next JS"] },
+  ],
+  [
+    "create_translation",
+    { id, title: "你好", bodyMarkdown: "嗨", tags: ["greeting"] },
+    "POST",
+    `/posts/${id}/translations`,
+    { title: "你好", bodyMarkdown: "嗨", tags: ["greeting"] },
   ],
   [
     "update_post",

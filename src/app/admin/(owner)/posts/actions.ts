@@ -8,6 +8,7 @@ import { DomainError } from "@/server/errors";
 import { uploadImage } from "@/server/media";
 import {
   createDraft,
+  createTranslation,
   languages,
   trashPost,
   updatePost,
@@ -18,6 +19,8 @@ import { requireOwner } from "@/app/admin/session";
 
 const editorFields = z.object({
   id: z.uuid().optional(),
+  // The post a new post translates; the service picks its language.
+  translationOf: z.uuid().optional(),
   language: z.enum(languages),
   title: z.string(),
   // Sent only while the post's slug can still change.
@@ -46,8 +49,8 @@ const notices = {
   unpublish: () => "Unpublished; the post is a draft again.",
 };
 
-// Previews the body, or saves the post: a new one as a draft, then opened in
-// its editor; an existing one keeps its language, takes the slug when the
+// Previews the body, or saves the post: a new one as a draft, or as the
+// translation of the post it translates, then opened in its editor; an existing one keeps its language, takes the slug when the
 // editor sends one, and publishing or unpublishing also changes its status.
 // Trashing an existing post discards unsaved changes and returns to the post
 // list.
@@ -61,7 +64,16 @@ export async function editPostAction(
     tags: form.getAll("tags"),
   });
   if (!input.success) return { error: "The form is invalid; reload the page." };
-  const { intent, id, language, title, slug, bodyMarkdown, tags } = input.data;
+  const {
+    intent,
+    id,
+    translationOf,
+    language,
+    title,
+    slug,
+    bodyMarkdown,
+    tags,
+  } = input.data;
 
   if (intent === "preview") {
     return { preview: await renderMarkdown(bodyMarkdown) };
@@ -69,12 +81,9 @@ export async function editPostAction(
   let next: string;
   try {
     if (!id) {
-      const created = await createDraft({
-        language,
-        title,
-        bodyMarkdown,
-        tags,
-      });
+      const created = translationOf
+        ? await createTranslation(translationOf, { title, bodyMarkdown, tags })
+        : await createDraft({ language, title, bodyMarkdown, tags });
       next = `/admin/posts/${created.id}`;
     } else if (intent === "trash") {
       await trashPost(id);

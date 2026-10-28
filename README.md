@@ -44,8 +44,9 @@ npm run dev
 
 The MCP server in `src/mcp/` runs on your machine and calls the blog's API
 with a token. Its tools list posts by status, read a post, create a draft,
-edit its content, slug, and tags, publish, unpublish, and delete it to the
-trash (restore it from the admin's Trash). `upload_image` uploads an image file from your machine under
+edit its content, slug, and tags, add its translation in the other language,
+publish, unpublish, and delete it to the trash (restore it from the admin's
+Trash). `upload_image` uploads an image file from your machine under
 the same rules as the admin and returns the Markdown that shows it, for the
 assistant to put in a post's body.
 

@@ -25,6 +25,12 @@ export type Post = {
   status: PostStatus;
   publishedAt: Date | null;
   updatedAt: Date;
+  // The post's other language version, in the trash or not; null until one
+  // is created.
+  translation: Translation | null;
+};
+export type Translation = Pick<Post, "id" | "language" | "title" | "status"> & {
+  trashed: boolean;
 };
 export type PostSummary = Pick<
   Post,
@@ -69,27 +75,67 @@ const postFields = {
   status: true,
   publishedAt: true,
   updatedAt: true,
+  translationGroupId: true,
 } as const;
+
+const languageNames = { zh: "Chinese", en: "English" } as const;
 
 // A new post is a draft in its own translation group, with the given tags or
 // none. Its slug comes from the title, or is a short random id when the title
 // has no Latin characters; when a concurrent save takes the same slug first,
 // the next free one is used.
-// Every round of colliding saves lets at least one through, so the bound is
-// reached only by an implausible number of simultaneous saves.
 export async function createDraft({
   language,
   ...content
 }: PostContent & { language: Language; tags?: string[] }): Promise<Post> {
+  return insertDraft(language, undefined, content);
+}
+
+// A translation of a post outside the trash: a draft in the post's other
+// language that joins its translation group, made like a new post. A group
+// holds one post per language, trashed posts included, so a post whose other
+// version exists, even in the trash, gets no new translation.
+export async function createTranslation(
+  sourceId: string,
+  content: PostContent & { tags?: string[] },
+): Promise<Post> {
+  const source = await getDb().post.findFirst({
+    where: { id: sourceId, deletedAt: null },
+    select: { language: true, translationGroupId: true },
+  });
+  if (!source) notFound();
+  return insertDraft(
+    otherLanguage(source.language),
+    source.translationGroupId,
+    content,
+  );
+}
+
+// The language a translation of a post in `language` is written in.
+export function otherLanguage(language: Language): Language {
+  return language === "zh" ? "en" : "zh";
+}
+
+// Inserts a draft in the given translation group, or in a new one. A unique
+// violation is either a slug taken meanwhile, which the next attempt avoids,
+// or the group's version in this language created meanwhile, which is final.
+// Every round of colliding saves lets at least one through, so the bound is
+// reached only by an implausible number of simultaneous saves.
+async function insertDraft(
+  language: Language,
+  translationGroupId: string | undefined,
+  content: PostContent & { tags?: string[] },
+): Promise<Post> {
   const title = validateTitle(content.title);
   const tags = validateTags(content.tags ?? []);
   const { bodyMarkdown } = content;
   const base = slugify(title) || shortId();
   for (let attempt = 1; attempt <= 10; attempt++) {
     try {
-      return await getDb().post.create({
+      const post = await getDb().post.create({
         data: {
           language,
+          translationGroupId,
           title,
           bodyMarkdown,
           tags,
@@ -97,8 +143,18 @@ export async function createDraft({
         },
         select: postFields,
       });
+      return await withTranslation(getDb(), post);
     } catch (error) {
       if (!isUniqueViolation(error)) throw error;
+      if (
+        translationGroupId &&
+        (await getDb().post.count({ where: { translationGroupId, language } }))
+      ) {
+        throw new DomainError(
+          "CONFLICT",
+          `This post already has its ${languageNames[language]} version; it may be in the trash.`,
+        );
+      }
     }
   }
   throw new DomainError("CONFLICT", "No free slug was found; save again.");
@@ -168,7 +224,10 @@ export async function updatePost(
         data: { publishedAt: new Date() },
       });
     }
-    return tx.post.findUniqueOrThrow({ where: { id }, select: postFields });
+    return withTranslation(
+      tx,
+      await tx.post.findUniqueOrThrow({ where: { id }, select: postFields }),
+    );
   });
 }
 
@@ -288,7 +347,7 @@ export async function getPost(id: string): Promise<Post> {
     select: postFields,
   });
   if (!post) notFound();
-  return post;
+  return withTranslation(getDb(), post);
 }
 
 // Every post outside the trash, most recently changed first; only those with
@@ -345,6 +404,35 @@ export async function deletePostPermanently(id: string): Promise<void> {
     where: { id, deletedAt: { not: null } },
   });
   if (count === 0) notFound();
+}
+
+// The post with its other language version: the other post of its
+// translation group, if there is one.
+async function withTranslation(
+  db: Pick<ReturnType<typeof getDb>, "post">,
+  {
+    translationGroupId,
+    ...post
+  }: Omit<Post, "translation"> & { translationGroupId: string },
+): Promise<Post> {
+  const other = await db.post.findFirst({
+    where: { translationGroupId, id: { not: post.id } },
+    select: {
+      id: true,
+      language: true,
+      title: true,
+      status: true,
+      deletedAt: true,
+    },
+  });
+  const translation = other && {
+    id: other.id,
+    language: other.language,
+    title: other.title,
+    status: other.status,
+    trashed: other.deletedAt !== null,
+  };
+  return { ...post, translation };
 }
 
 function notFound(): never {

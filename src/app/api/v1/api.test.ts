@@ -21,6 +21,7 @@ import { createToken, listTokens, revokeToken } from "@/server/tokens";
 import { sessionCookie } from "@/app/admin/session-cookie";
 import * as postsRoute from "./posts/route";
 import * as postRoute from "./posts/[id]/route";
+import * as translationsRoute from "./posts/[id]/translations/route";
 import * as imagesRoute from "./images/route";
 import * as imageLimitsRoute from "./images/limits/route";
 
@@ -49,6 +50,13 @@ const posts = {
   create: (options: Options) =>
     postsRoute.POST(request("POST", "/posts", options)),
 };
+const translate = (id: string, options: Options) =>
+  translationsRoute.POST(
+    request("POST", `/posts/${id}/translations`, options),
+    {
+      params: Promise.resolve({ id }),
+    },
+  );
 const uploadImage = (options: Options) =>
   imagesRoute.POST(request("POST", "/images", options));
 const post = Object.fromEntries(
@@ -331,6 +339,79 @@ test("explains invalid edits, unknown posts, and slug conflicts", async () => {
   );
   expect(conflict).toContain('"taken"');
   await expect(getPost(id)).resolves.toMatchObject({ slug: "mine" });
+});
+
+test("creates a post's translation with a token and links both versions", async () => {
+  const headers = await bearer();
+  const source = await createDraft({
+    language: "zh",
+    title: "你好",
+    bodyMarkdown: "嗨",
+  });
+
+  const created = await translate(source.id, {
+    headers,
+    body: { title: "Hello", bodyMarkdown: "Hi", tags: ["Greeting"] },
+  });
+  expect(created.status).toBe(201);
+  const translation = postResponse.parse(await created.json());
+  expect(translation).toMatchObject({
+    language: "en",
+    title: "Hello",
+    slug: "hello",
+    tags: ["greeting"],
+    status: "draft",
+    translation: {
+      id: source.id,
+      language: "zh",
+      title: "你好",
+      status: "draft",
+      trashed: false,
+    },
+  });
+  const read = postResponse.parse(
+    await (await post.GET(source.id, { headers })).json(),
+  );
+  expect(read.translation).toEqual({
+    id: translation.id,
+    language: "en",
+    title: "Hello",
+    status: "draft",
+    trashed: false,
+  });
+
+  const again = await expectError(
+    await translate(source.id, {
+      headers,
+      body: { title: "Hello again", bodyMarkdown: "" },
+    }),
+    409,
+    "CONFLICT",
+  );
+  expect(again).toContain("English version");
+  await expectError(
+    await translate(source.id, {
+      headers,
+      body: { language: "zh", title: "Hello", bodyMarkdown: "" },
+    }),
+    400,
+    "VALIDATION",
+  );
+  await expectError(
+    await translate(crypto.randomUUID(), {
+      headers,
+      body: { title: "Hello", bodyMarkdown: "" },
+    }),
+    404,
+    "NOT_FOUND",
+  );
+  await expectError(
+    await translate(source.id, {
+      body: { title: "Hello", bodyMarkdown: "" },
+    }),
+    401,
+    "UNAUTHORIZED",
+  );
 });
 
 test("uploads an image with a token and answers its Markdown", async () => {
