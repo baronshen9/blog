@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { messages, type Locale } from "@/messages";
 import styles from "./tag-list.module.css";
 
 // A published post's tags as links to their tag pages; nothing when the post
@@ -7,13 +8,15 @@ import styles from "./tag-list.module.css";
 export function TagList({
   tags,
   hrefFor,
+  locale,
 }: {
   tags: string[];
   hrefFor: (tag: string) => string;
+  locale: Locale;
 }) {
   if (tags.length === 0) return null;
   return (
-    <ul aria-label="Tags" className={styles.tags}>
+    <ul aria-label={messages[locale].tags.label} className={styles.tags}>
       {tags.map((tag) => (
         <li key={tag}>
           <Link href={hrefFor(tag)} className={styles.link}>

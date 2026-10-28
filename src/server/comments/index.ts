@@ -1,4 +1,5 @@
 import { createHmac, randomBytes } from "node:crypto";
+import { messages, type CommentLimits, type CommentRefusal } from "@/messages";
 import { getDb } from "@/server/db";
 import { DomainError } from "@/server/errors";
 import { getPublishedPostId, type Language } from "@/server/posts";
@@ -9,6 +10,24 @@ export const messageMaxLength = 2000;
 
 // Each visitor may send this many comments per fixed window.
 export const commentRateLimit = { count: 5, windowMinutes: 10 };
+
+// The limits a refusal names, for interfaces that phrase it themselves.
+export const commentLimits: CommentLimits = {
+  nicknameMaxLength,
+  messageMaxLength,
+  windowMinutes: commentRateLimit.windowMinutes,
+};
+
+// A refused comment. The reason lets the public pages say why in the
+// reader's language; the message says it in English.
+export class CommentRefused extends DomainError {
+  readonly reason: CommentRefusal;
+
+  constructor(code: DomainError["code"], reason: CommentRefusal) {
+    super(code, messages.en.comments.refusals[reason](commentLimits));
+    this.reason = reason;
+  }
+}
 
 export type CommentSubmission = {
   language: Language;
@@ -33,18 +52,19 @@ const visitorKey = randomBytes(32);
 // stored. A post unpublished between the check and the write keeps a pending
 // comment that is never shown while the post is not public.
 export async function submitComment(input: CommentSubmission): Promise<void> {
-  if (input.trap) {
-    throw new DomainError(
-      "VALIDATION",
-      "This comment looks automated and was not sent.",
-    );
-  }
-  const nickname = validate(input.nickname, "nickname", nicknameMaxLength);
-  const message = validate(input.message, "message", messageMaxLength);
+  if (input.trap) throw new CommentRefused("VALIDATION", "automated");
+  const nickname = validate(input.nickname, nicknameMaxLength, {
+    missing: "nicknameMissing",
+    tooLong: "nicknameTooLong",
+  });
+  const message = validate(input.message, messageMaxLength, {
+    missing: "messageMissing",
+    tooLong: "messageTooLong",
+  });
   const postId = await getPublishedPostId(input.language, input.slug).catch(
     (error: unknown) => {
       if (error instanceof DomainError && error.code === "NOT_FOUND") {
-        throw new DomainError("NOT_FOUND", "This post accepts no comments.");
+        throw new CommentRefused("NOT_FOUND", "closed");
       }
       throw error;
     },
@@ -74,21 +94,19 @@ async function countSubmission(visitor: string): Promise<void> {
     DO UPDATE SET "count" = "CommentRateLimit"."count" + 1
     RETURNING "count"`;
   if ((counted?.count ?? 0) > commentRateLimit.count) {
-    throw new DomainError(
-      "CONFLICT",
-      `You have sent too many comments for now; try again in ${commentRateLimit.windowMinutes} minutes.`,
-    );
+    throw new CommentRefused("CONFLICT", "rateLimited");
   }
 }
 
-function validate(value: string, name: string, maxLength: number): string {
+function validate(
+  value: string,
+  maxLength: number,
+  refusals: { missing: CommentRefusal; tooLong: CommentRefusal },
+): string {
   const trimmed = value.trim();
-  if (!trimmed) throw new DomainError("VALIDATION", `Enter a ${name}.`);
+  if (!trimmed) throw new CommentRefused("VALIDATION", refusals.missing);
   if (trimmed.length > maxLength) {
-    throw new DomainError(
-      "VALIDATION",
-      `Keep the ${name} within ${maxLength.toLocaleString("en")} characters.`,
-    );
+    throw new CommentRefused("VALIDATION", refusals.tooLong);
   }
   return trimmed;
 }

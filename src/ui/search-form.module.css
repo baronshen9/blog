@@ -1,8 +1,5 @@
 .form {
   display: flex;
-  flex: 1 0 14rem;
-  max-width: 20rem;
-  min-width: 0;
   gap: var(--space-2);
 }
 

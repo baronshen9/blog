@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { messages, type Locale } from "@/messages";
 import styles from "./pager.module.css";
 
 // Newer and older links around the current page number of a paged list.
@@ -7,32 +8,35 @@ export function Pager({
   page,
   pageCount,
   hrefFor,
+  locale,
 }: {
   page: number;
   pageCount: number;
   hrefFor: (page: number) => string;
+  locale: Locale;
 }) {
+  const text = messages[locale].pager;
   return (
-    <nav aria-label="Pages" className={styles.pager}>
+    <nav aria-label={text.label} className={styles.pager}>
       {page > 1 ? (
         <Link href={hrefFor(page - 1)} rel="prev" className={styles.link}>
-          <span aria-hidden="true">← </span>Newer
+          <span aria-hidden="true">← </span>
+          {text.newer}
         </Link>
       ) : (
         <span aria-hidden="true" className={styles.disabled}>
-          ← Newer
+          ← {text.newer}
         </span>
       )}
-      <span className={styles.current}>
-        Page {page} of {pageCount}
-      </span>
+      <span className={styles.current}>{text.current(page, pageCount)}</span>
       {page < pageCount ? (
         <Link href={hrefFor(page + 1)} rel="next" className={styles.link}>
-          Older<span aria-hidden="true"> →</span>
+          {text.older}
+          <span aria-hidden="true"> →</span>
         </Link>
       ) : (
         <span aria-hidden="true" className={styles.disabled}>
-          Older →
+          {text.older} →
         </span>
       )}
     </nav>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { messages, type Locale } from "@/messages";
 import { Button } from "./button";
 import { Field } from "./field";
 import { Notice } from "./notice";
@@ -22,6 +23,7 @@ export function CommentForm({
   submit,
   nicknameMaxLength,
   messageMaxLength,
+  locale,
 }: {
   submit: (
     previous: CommentFormState,
@@ -29,18 +31,18 @@ export function CommentForm({
   ) => Promise<CommentFormState>;
   nicknameMaxLength: number;
   messageMaxLength: number;
+  locale: Locale;
 }) {
   const [state, action, pending] = useActionState(submit, {});
+  const text = messages[locale].comments;
   return (
     <section className={styles.comments} aria-labelledby="comment-form-title">
       <h2 id="comment-form-title" className={styles.title}>
-        Leave a comment
+        {text.title}
       </h2>
-      <p className={styles.note}>
-        No account needed. Comments appear after the author approves them.
-      </p>
+      <p className={styles.note}>{text.note}</p>
       <form action={action} className={styles.form}>
-        <Field label="Nickname">
+        <Field label={text.nickname}>
           <input
             name="nickname"
             defaultValue={state.nickname}
@@ -49,7 +51,7 @@ export function CommentForm({
             required
           />
         </Field>
-        <Field label="Message">
+        <Field label={text.message}>
           <textarea
             name="message"
             className={styles.message}
@@ -61,20 +63,15 @@ export function CommentForm({
         </Field>
         <div className={styles.trap} aria-hidden="true">
           <label>
-            Leave this field empty
+            {text.trap}
             <input name="website" tabIndex={-1} autoComplete="off" />
           </label>
         </div>
         <div className={styles.actions}>
           {state.error && <Notice tone="error">{state.error}</Notice>}
-          {state.sent && (
-            <Notice tone="success">
-              Thank you! Your comment awaits moderation and appears once the
-              author approves it.
-            </Notice>
-          )}
+          {state.sent && <Notice tone="success">{text.sent}</Notice>}
           <Button type="submit" variant="primary" disabled={pending}>
-            Send comment
+            {text.submit}
           </Button>
         </div>
       </form>

@@ -10,7 +10,13 @@ const parentRelative = {
   message: "Import other modules through `@/`.",
 };
 const moduleInternals = {
-  group: ["@/server/*/**", "@/contract/**", "@/lib/**", "@/ui/**"],
+  group: [
+    "@/server/*/**",
+    "@/contract/**",
+    "@/lib/**",
+    "@/messages/**",
+    "@/ui/**",
+  ],
   message: "Use another module only through its index.ts.",
 };
 const nextRequestApis = {
@@ -97,11 +103,14 @@ export default defineConfig([
       moduleInternals,
       prisma,
       nextRequestApis,
-      allowOnly(["lib"], "UI components depend only on lib."),
+      allowOnly(
+        ["lib", "messages"],
+        "UI components depend only on lib and messages.",
+      ),
     ],
   ),
   restrict(
-    ["src/lib/**", "src/contract/**"],
+    ["src/lib/**", "src/contract/**", "src/messages/**"],
     [
       parentRelative,
       prisma,
@@ -115,7 +124,14 @@ export default defineConfig([
       prisma,
       nextRequestApis,
       {
-        group: ["@/*", "../app/*", "../server/*", "../ui/*", "../lib/*"],
+        group: [
+          "@/*",
+          "../app/*",
+          "../server/*",
+          "../ui/*",
+          "../lib/*",
+          "../messages/*",
+        ],
         message: "The MCP server imports only src/contract/, by relative path.",
       },
     ],

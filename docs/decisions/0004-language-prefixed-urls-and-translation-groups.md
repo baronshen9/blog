@@ -20,7 +20,8 @@ migration of every post.
   language exists in a group, and slugs are unique per language.
 - The interface translation library and the language switch are chosen in M5
   (default candidate: next-intl). Until then the locale segment is validated
-  and the interface text is English.
+  and the interface text is English. M5 chose typed message files instead
+  ([0006](0006-typed-interface-messages.md)).
 
 ## Consequences
 
