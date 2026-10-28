@@ -6,12 +6,14 @@ import type { Language } from "@/server/posts";
 import { SiteFrame } from "@/ui";
 import { languageHrefs } from "./language-hrefs";
 
-// Where the language switch leads in one language from the page at `pathname`,
-// instead of what the URL alone tells.
-type SwitchTarget = { pathname: string; language: Language; href: string };
+// Where the language switch leads in each language from the page at
+// `pathname`, instead of what the URL alone tells.
+type SwitchTargets = Partial<
+  Record<Language, { pathname: string; href: string }>
+>;
 
-const SwitchTargetContext = createContext<
-  (target: SwitchTarget | null) => void
+const SwitchTargetsContext = createContext<
+  React.Dispatch<React.SetStateAction<SwitchTargets>>
 >(() => {});
 
 // The public frame with the language switch pointing at the current page's
@@ -23,14 +25,17 @@ export function PublicFrame({
 }: Omit<React.ComponentProps<typeof SiteFrame>, "languageHrefs">) {
   const pathname = usePathname();
   const hrefs = languageHrefs(pathname, useSearchParams());
-  const [target, setTarget] = useState<SwitchTarget | null>(null);
-  if (target?.pathname === pathname) hrefs[target.language] = target.href;
+  const [targets, setTargets] = useState<SwitchTargets>({});
+  for (const [language, target] of Object.entries(targets)) {
+    if (target?.pathname === pathname)
+      hrefs[language as Language] = target.href;
+  }
   return (
-    <SwitchTargetContext value={setTarget}>
+    <SwitchTargetsContext value={setTargets}>
       <SiteFrame {...props} languageHrefs={hrefs}>
         {children}
       </SiteFrame>
-    </SwitchTargetContext>
+    </SwitchTargetsContext>
   );
 }
 
@@ -45,11 +50,12 @@ export function SwitchTo({
   language: Language;
   href: string;
 }) {
-  const setTarget = use(SwitchTargetContext);
+  const setTargets = use(SwitchTargetsContext);
   const pathname = usePathname();
   useEffect(() => {
-    setTarget({ pathname, language, href });
-    return () => setTarget(null);
-  }, [setTarget, pathname, language, href]);
+    setTargets((targets) => ({ ...targets, [language]: { pathname, href } }));
+    return () =>
+      setTargets((targets) => ({ ...targets, [language]: undefined }));
+  }, [setTargets, pathname, language, href]);
   return null;
 }

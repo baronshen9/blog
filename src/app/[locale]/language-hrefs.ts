@@ -1,9 +1,11 @@
 import type { Language } from "@/server/posts";
 
-// Where the language switch leads from the public page at `pathname`: the same
-// list in each language — home, a tag page, or a search with its words — and
-// otherwise, such as from a post or a page that is not found, that language's
-// home page. Paging starts over, since the lists of two languages differ.
+// Where the language switch leads from the public page at `pathname`, as far
+// as the URL tells: the same list in each language — home, a tag page, or a
+// search with its words — and otherwise, such as from a post, that language's
+// home page. Paging starts over, since the lists of two languages differ. A
+// page that knows better, such as a not-found tag page, overrides it with
+// `SwitchTo`.
 export function languageHrefs(
   pathname: string,
   query: URLSearchParams,
